@@ -1,0 +1,84 @@
+CASE RELAY | STUDENT WALKTHROUGH
+Security logging, event correlation and investigation
+====================================================
+
+Plan for 75–95 minutes, including the written hand-off. You can work at
+your own pace, use hints and retry any challenge.
+
+OPEN THE DESK
+1. Open index.html in a modern browser or follow your class lab link.
+2. Watch the source lanes send log records to the SIEM. Read the four
+   short definitions below the diagram.
+3. Click “Start the lab.” Use “Resume the lab” when you return later.
+4. Read the case brief and the current challenge. Write down the system,
+   user and time window when the brief supplies them.
+5. Open “Show a hint” for help with the fields to compare.
+
+REPLAY AND EXPLORE
+1. Under “SIEM event explorer,” click “Replay arrivals.” When a record
+   reaches the SIEM, its source lights up and the replay shows its original
+   event time and its arrival time. Gaps are shortened for the replay.
+2. Click “Pause replay” to stop automatic advance. “Step arrival” moves
+   by one record. “Rewind” resets playback. The full table is available
+   at every replay position. Use “Pause motion” to turn off movement.
+3. Select a source, search a field value such as a host or account, or enter
+   UTC times. Click “Apply filters.” Filters are combined. Time bounds are
+   inclusive and apply to the event time for this case day.
+4. Use “Sort events” to compare event order with arrival order.
+   Use “Clear” to restore the full view.
+5. Click an event ID in the table. The inspector shows the source device,
+   both UTC times, the original log and a short explanation of the source.
+   On smaller screens, the inspector appears below the table.
+6. Read the original action, result, user, session and address values.
+   Firewall actions describe firewall decisions. Identity and server logs
+   report results for the services that generated them.
+
+BUILD YOUR EVIDENCE TIMELINE
+1. In Event details, click “Pin event.”
+2. Pin each record asked for in the challenge. Check the ID on the card.
+3. In an ordered challenge, use “Earlier” and “Later” to arrange cards by
+   UTC event time. “Remove” drops one pin. “Clear pins” clears the board.
+4. Read “Field matches across your pins.” The board compares common account,
+   address, device, session and request fields. Treat matches as leads to
+   verify. For example, a public IP may be shared by unrelated devices.
+5. Click “Prepare original snapshot” when the challenge asks for it.
+   “Download JSON” saves a copy of all originals in the current case with
+   their source and timestamps. Your working filters and order do not
+   change those originals.
+
+CHECK YOUR FINDING
+1. Below the timeline, answer each question under “Check your finding.”
+2. Click “Check my work.” Use the feedback to adjust the pins, order or
+   responses. If the right records are selected in the wrong order, move
+   the cards using their UTC event times.
+3. In the AI audit, choose Supported for claims directly backed by the
+   source, Contradicted for claims in conflict with it, or Not established
+   when the evidence cannot decide. These are supplied training drafts.
+4. Click “Next challenge” after a pass. The next challenge starts with a
+   clean working board. The top bar and case cards track completions.
+
+WHAT TO PRACTISE
+- One red event. Explain what the firewall, identity service and scheduling
+  server each know. Plan one follow-up for the real app error.
+- A clock out of order. Write down the gateway’s raw time, its UTC time
+  and the arrival order. Explain why UTC event time tells a different story.
+- The shared address. Compare the users and devices behind one public IP.
+  Then identify the stronger relationship in the later identity events.
+- The after-hours session. Trace the assigned tunnel address into the
+  server and proxy logs. Explain what the byte count and folder operation show.
+- Audit the AI draft. Cite the original field for each verdict. Use only
+  approved tools and permitted inputs when working with real evidence.
+- Final analyst shift. Keep the scheduled backup separate from the other
+  transfer. Write a hand-off with confirmed facts, a cautious interpretation,
+  unresolved questions, and an owner for follow-up.
+
+HAND-OFF AND CERTIFICATE
+1. After completing the last challenge in Final analyst shift, click
+   “Go to hand-off.” Write your own brief and download it for discussion.
+2. Include the time window, account, session or address and relevant event IDs.
+   State what the next analyst should obtain to answer the open questions.
+3. Once the header shows “24 / 24 complete,” go to the certificate section,
+   enter your name and click “Download PNG.”
+4. Use the same browser and lab address when returning. Completed challenges
+   are saved in browser storage. Pins and notes are working material. Save
+   your downloaded evidence and hand-off before closing the page.

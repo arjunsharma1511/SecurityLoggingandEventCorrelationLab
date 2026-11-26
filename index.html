@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A browser-based SOC lab on security logs, SIEM search, event correlation and evidence-led investigations.">
+  <title>Case Relay | Security Logging &amp; Event Correlation Lab</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="cases.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#desk">Skip to the investigation desk</a>
+  <header class="top" id="home">
+    <a class="brand" href="#home"><span class="brand-icon" aria-hidden="true"><i></i><i></i><i></i></span>Case Relay</a>
+    <div class="top-actions">
+      <div class="progress-wrap"><b id="progress-label">0 / 24 complete</b><progress id="progress" max="24" value="0" aria-label="Challenges completed"></progress></div>
+      <button class="quiet" id="motion" type="button" aria-pressed="false">Pause motion</button>
+    </div>
+  </header>
+  <main>
+    <section class="hero" aria-labelledby="title">
+      <div>
+        <p class="eyebrow">SECURITY LOGGING &amp; EVENT CORRELATION</p>
+        <h1 id="title">Connect<br> the logs.</h1>
+        <p class="lede">A denied connection, a successful sign-in, a burst of outbound traffic. Which records belong together? Take the analyst’s seat and build a timeline you can defend.</p>
+        <div class="actions"><button class="primary" id="resume" type="button">Start the lab</button><a href="STUDENT-GUIDE.txt">Student walkthrough</a></div>
+        <p class="meta">6 fictional cases · 24 guided challenges · Allow 75–95 minutes</p>
+      </div>
+      <div class="hero-visual" role="img" aria-label="Animated records from a firewall, identity service, server, endpoint and proxy travel into a central SIEM. The SIEM makes the records searchable and generates a lead for analyst review.">
+        <p class="eyebrow">HOW LOGS REACH THE SIEM</p>
+        <div class="collector" aria-hidden="true">
+          <div class="collector-lanes">
+            <div class="lane" style="--signal:#ffb789;--lag:0s"><span>Firewall</span><i></i></div>
+            <div class="lane" style="--signal:#c8adff;--lag:-.56s"><span>Identity</span><i></i></div>
+            <div class="lane" style="--signal:#84e8ff;--lag:-1.12s"><span>Server</span><i></i></div>
+            <div class="lane" style="--signal:#a8f3c1;--lag:-1.68s"><span>Endpoint</span><i></i></div>
+            <div class="lane" style="--signal:#ffda8f;--lag:-2.24s"><span>Proxy</span><i></i></div>
+          </div>
+          <div class="collector-box"><div class="relay-light"><i></i><i></i><i></i></div><strong>SIEM</strong><small>Organise<br>Search<br>Correlate</small></div>
+        </div>
+        <p class="collector-note">The SIEM groups records. Open the source log to see what each record means.</p>
+      </div>
+    </section>
+
+    <section class="briefing" aria-labelledby="primer">
+      <h2 id="primer">Read the evidence like an analyst</h2>
+      <div class="primer-grid">
+        <article><h3>Event and alert</h3><p>A log records an observation. A Security Information and Event Management (SIEM) system brings logs together and can flag a pattern for review.</p></article>
+        <article><h3>Event time and arrival</h3><p>Event time says when the source saw it. Arrival says when the SIEM received it. Compare event times in the same time zone.</p></article>
+        <article><h3>Correlation</h3><p>Connect events using time, account, system, address and session details. A shared IP or minute can occur by coincidence.</p></article>
+        <article><h3>Evidence and judgement</h3><p>Preserve the original record. Explain confirmed facts, reasonable interpretations and open questions. Validate AI claims against the evidence.</p></article>
+      </div>
+    </section>
+
+    <section id="desk" class="desk" aria-labelledby="desk-title">
+      <div class="section-title"><div><p class="eyebrow">SOC WORKBENCH</p><h2 id="desk-title">Investigation desk</h2></div><button class="quiet" id="reset" type="button">Reset progress</button></div>
+      <nav id="cases" class="case-nav" aria-label="Case files"></nav>
+      <div class="case-brief" id="case-brief"></div>
+      <nav id="tasks" class="task-nav" aria-label="Challenges in this case"></nav>
+      <article class="mission" id="mission"></article>
+      <section class="console" aria-labelledby="console-title">
+        <div class="section-title"><div><p class="eyebrow">SUPPLIED RECORDS</p><h3 id="console-title">SIEM event explorer</h3></div>
+          <div class="button-row"><button class="quiet" id="play" type="button">Replay arrivals</button><button class="quiet" id="step" type="button">Step arrival</button><button class="quiet" id="rewind" type="button">Rewind</button></div></div>
+        <div class="ingest" id="ingest">
+          <div class="source-strip" id="source-strip" aria-label="Log sources in this case"></div>
+          <div class="ingest-display"><strong id="replay-state">Ready</strong><span id="replay-message">Replay shows when the SIEM received each record.</span><progress id="replay-progress" max="1" value="0" aria-label="Replay position"></progress></div>
+        </div>
+        <form class="filters" id="filters">
+          <label>Source<select id="filter-source"><option value="">All sources</option></select></label>
+          <label class="wide">Search record fields<input id="filter-query" placeholder="Try a host, user, address or event ID" autocomplete="off" spellcheck="false"></label>
+          <label>From UTC<input id="filter-from" type="time" step="1"></label>
+          <label>To UTC<input id="filter-to" type="time" step="1"></label>
+          <label>Sort events<select id="sort"><option value="event">Event time (UTC)</option><option value="arrival">SIEM arrival (UTC)</option></select></label>
+          <div class="button-row"><button class="primary" type="submit">Apply filters</button><button class="quiet" id="clear" type="button">Clear</button></div>
+        </form>
+        <p class="meta" id="match-count" aria-live="polite"></p>
+        <div class="explorer">
+          <div class="table-scroll" tabindex="0" aria-label="Scrollable log table">
+            <table><thead><tr><th scope="col">Event</th><th scope="col">Event UTC</th><th scope="col">Arrived UTC</th><th scope="col">Source</th><th scope="col">SIEM summary</th></tr></thead><tbody id="rows"></tbody></table>
+          </div>
+          <div class="record" id="record" aria-labelledby="record-title"><h4 id="record-title">Event details</h4><p>Select an event ID to read the original record.</p></div>
+        </div>
+      </section>
+      <section class="board" aria-labelledby="board-title">
+        <div class="section-title"><div><h3 id="board-title">Evidence timeline</h3><p class="meta">Pin only the events the challenge asks for. Put ordered challenges in event-time order.</p></div><button class="quiet" type="button" id="empty-board">Clear pins</button></div>
+        <ol class="pins" id="pins" aria-label="Pinned events in your chosen order"></ol>
+        <div id="joins" class="joins" hidden></div>
+        <div class="preserve"><div><b>Original evidence</b><p class="meta" id="snapshot-state">Prepare a copy of the full supplied log set, including source and arrival time.</p></div><div class="button-row"><button class="quiet" type="button" id="preserve">Prepare original snapshot</button><button class="quiet" type="button" id="download-original" disabled>Download JSON</button></div></div>
+      </section>
+      <section class="submission" id="submission" aria-labelledby="submit-title">
+        <h3 id="submit-title">Check your finding</h3>
+        <div id="prompts"></div>
+        <p id="feedback" role="status"></p>
+        <div class="actions"><button class="primary" id="check" type="button">Check my work</button><button class="quiet" id="next" type="button" disabled>Next challenge</button></div>
+      </section>
+      <section class="submission handoff" id="handoff" hidden aria-labelledby="handoff-title">
+        <h3 id="handoff-title">Write your own hand-off</h3>
+        <p>Use the final case records to write a short briefing. This reflection is for discussion with your instructor.</p>
+        <label for="handoff-note">Observed facts, interpretation, open questions and next owner</label>
+        <textarea id="handoff-note" rows="6" maxlength="3000" placeholder="Scope and facts:&#10;Interpretation:&#10;Unresolved questions:&#10;Next action and owner:"></textarea>
+        <button class="quiet" id="download-note" type="button">Download my hand-off</button><p class="meta" id="note-feedback" role="status"></p>
+      </section>
+    </section>
+    <section class="certificate" id="certificate">
+      <div><p class="eyebrow">LAB COMPLETION</p><h2>Certificate</h2><p id="cert-status">Complete all 24 challenges to unlock your certificate.</p></div>
+      <form id="cert-form" hidden><label for="learner">Name on your certificate</label><div class="button-row"><input id="learner" maxlength="65" autocomplete="name" required><button class="primary" type="submit">Download PNG</button></div></form>
+    </section>
+  </main>
+  <footer><b>Case Relay</b><span>Fictional training logs · <a href="STUDENT-GUIDE.txt">Student walkthrough</a></span></footer>
+  <noscript><p>Enable JavaScript to use the investigation desk.</p></noscript>
+</body>
+</html>
