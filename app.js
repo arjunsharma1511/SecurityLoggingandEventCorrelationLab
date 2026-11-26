@@ -1,292 +1,129 @@
 "use strict";
-
-const $ = id => document.getElementById(id);
-const key = "north-quay-midnight-edition-v1";
-const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const record = id => records.find(item => item.id === id);
-function fresh() { return { passed:0, current:0, drafts:{}, report:"", paused:reduced.matches }; }
-function load() {
-  try {
-    const s = JSON.parse(localStorage.getItem(key));
-    if (s && Number.isInteger(s.passed) && s.passed >= 0 && s.passed <= stations.length &&
-        Number.isInteger(s.current) && s.current >= 0 && s.current < stations.length &&
-        s.current <= s.passed && s.drafts && typeof s.drafts === "object") return s;
-  } catch { /* Browser storage may be unavailable. */ }
-  return fresh();
+const $=id=>document.getElementById(id);
+const safe=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const key="signal-harbour-night-watch-v1";
+const preference=matchMedia("(prefers-reduced-motion: reduce)");
+function fresh(){return {done:0,pos:0,entries:{},tries:{},checks:{},motion:!preference.matches,tests:{},beat:{}};}
+function readState(){try{const v=JSON.parse(localStorage.getItem(key));if(v&&Number.isInteger(v.done)&&v.done>=0&&v.done<=50&&Number.isInteger(v.pos)&&v.pos>=0&&v.pos<=v.done&&v.pos<50)return {...fresh(),...v};}catch{}return fresh();}
+const s=readState(), coast=startHarbour($("coast"));
+const pages=[];
+rounds.forEach((r,i)=>{for(let j=0;j<3;j++)pages.push({i,j});if(i%3===2)pages.push({i,j:3});});
+let inDesk=false,beat=0,playing=false,interval,dispose=()=>{},storageOK=true;
+function save(){try{localStorage.setItem(key,JSON.stringify(s));}catch{storageOK=false;$("sr").textContent="Browser storage is unavailable. Keep this tab open during your shift.";}}
+function get(){const p=pages[s.pos];return {...p,r:rounds[p.i],ch:Math.floor(p.i/3)};}
+function motion(){document.documentElement.classList.toggle("still",!s.motion);$("motion").textContent=s.motion?"Pause motion":"Enable motion";$("motion").setAttribute("aria-pressed",String(!s.motion));coast.motion(!s.motion);}
+function stop(){clearInterval(interval);playing=false;dispose();dispose=()=>{};}
+function route(){
+ $("count").textContent=Math.floor(s.done/10)+" of 5 chapters signed";
+ $("route").innerHTML=chapters.map((c,i)=>{const opened=i*10<=s.done;return '<button class="chapter" data-ch="'+i+'" '+(!opened?'disabled':'')+'><span class="stamp" aria-hidden="true">'+["▤","◷","⑂","≋","☼"][i]+'</span><span><small>Chapter '+(i+1)+'</small><strong>'+safe(c[0])+'</strong><span>'+safe(c[1])+'</span></span><b>'+(s.done>=(i+1)*10?"Signed":opened?"Open":"Locked")+'</b></button>';}).join("");
+ $("begin").textContent=s.done===50?"View my completed shift":s.done||Object.keys(s.tries).length?"Resume my shift":"Start my shift";
 }
-const state = load();
-let sequenceVersion = 0;
-function save() {
-  try { localStorage.setItem(key, JSON.stringify(state)); }
-  catch { $("meter").title = "Storage unavailable. Progress is held in this tab."; }
+function home(focus=false){
+ stop();inDesk=false;$("landing").hidden=false;$("desk").hidden=true;$("reward").hidden=s.done!==50;route();coast.morning(s.done===50);
+ if(focus){$("home").focus({preventScroll:true});window.scrollTo(0,0);}
 }
-function draft() { return state.drafts[state.current] ||= {}; }
-function put(name, value) { draft()[name] = value; save(); }
-function picks(name) { return draft()[name] || []; }
-function draw(label, field, choices) {
-  return '<label class="control"><span>'+esc(label)+'</span><select data-field="'+field+'"><option value="">Choose…</option>'+
-    choices.map((choice,i) => '<option value="'+i+'" '+(String(draft()[field])===String(i)?"selected":"")+'>'+esc(choice)+'</option>').join("")+'</select></label>';
+function desk(pos,focus=true){
+ stop();s.pos=Math.max(0,Math.min(pos,s.done,49));save();inDesk=true;$("landing").hidden=true;$("desk").hidden=false;$("reward").hidden=true;
+ const {i,j}=get();beat=s.beat[i]??0;render();if(j!==3)showFrame(s.motion&&j===0,true);
+ if(focus){$("task-title").focus({preventScroll:true});window.scrollTo(0,0);}
 }
-function group(list, prefix) { return list.map(([label, choices], i) => draw(label,prefix+i,choices)).join(""); }
-function slip(id) {
-  const r = record(id);
-  return '<details class="slip" data-slip="'+r.id+'"><summary><code>'+r.id+'</code> '+esc(r.title)+'</summary><p>'+esc(r.source)+' · received '+r.received+' UTC</p><pre>'+esc(r.raw)+'</pre></details>';
+function slip(id){const [n,src,time,meaning,raw]=slips[id];return '<details class="slip"><summary><span class="slip-id">'+n+'</span><strong>'+safe(src)+'</strong><time>'+safe(time)+'</time></summary><p>'+safe(meaning)+'</p><div class="original"><small>Original record</small><code>'+safe(raw)+'</code></div></details>';}
+function exercise(task,j){
+ const v=s.tries[s.pos]||[],done=s.pos<s.done;
+ if(task.kind==="number")return '<label class="number"><span>Your answer in '+safe(task.unit)+'</span><input id="number" type="number" min="0" step="1" inputmode="numeric" value="'+safe(v[0])+'" '+(done?"disabled":"")+'></label>';
+ return '<div class="options">'+task.options.map((label,k)=>{const at=v.indexOf(k);return '<button data-opt="'+k+'" aria-pressed="'+(at>=0)+'" class="option '+(at>=0?"selected":"")+'" '+(done?'disabled':'')+'><i aria-hidden="true">'+(task.kind==="order"&&at>=0?at+1:at>=0?"✓":task.kind==="choose"?"○":"·")+'</i>'+safe(label)+'</button>';}).join("")+'</div>';
 }
-function action(id,label,kind="light") { return '<button class="'+kind+'" data-action="'+id+'">'+esc(label)+'</button>'; }
-function mix(...ids) { return '<div class="slips">'+ids.map(slip).join("")+'</div>'; }
-function nav() {
-  $("meter").textContent = state.passed+" / 8 stations signed";
-  $("nav").innerHTML = stations.map((s,i) => '<button data-go="'+i+'" '+(i>state.passed?"disabled":"")+' '+(i===state.current?'aria-current="step"':"")+'><b>'+String(i+1).padStart(2,"0")+'</b><span>'+esc(s.name)+'</span><small>'+(i<state.passed?"Signed":i>state.passed?"Locked":"Open")+'</small></button>').join("");
-  $("start").textContent = state.passed === 8 ? "View signed edition" : state.passed || Object.keys(state.drafts[0]||{}).length ? "Resume shift" : "Open shift file";
-  $("reward").hidden = state.passed !== 8;
+function fieldExercise(ch,done){
+ const f=fieldChecks[ch],values=s.checks[ch]||[];
+ return '<section class="field-case"><p class="eyebrow">Practice on fresh records</p><h4>'+safe(f.title)+'</h4><p>'+safe(f.intro)+'</p><div>'+f.rows.map(([id,src,text])=>'<details class="slip"><summary><span class="slip-id">'+id+'</span><strong>'+safe(src)+'</strong></summary><p>'+safe(text)+'</p></details>').join("")+'</div>'+f.fields.map(([prompt],n)=>'<label><span>'+safe(prompt)+'</span><input data-fieldcheck="'+n+'" maxlength="20" autocomplete="off" value="'+safe(values[n])+'" '+(done?"readonly":"")+'></label>').join("")+'<details class="hint"><summary>Help with these new slips</summary><p>'+safe(f.hint)+'</p></details></section>';
 }
-function setMotion() {
-  document.documentElement.classList.toggle("paused",!!state.paused);
-  $("motion").textContent = state.paused ? "Enable motion" : "Pause motion";
-  $("motion").setAttribute("aria-pressed",String(!!state.paused));
+function trial(){
+ const test=s.tests,mask=test.mask??1,ran=test.last===mask;
+ const samples=[["Ferry desk to Chart House · 18:24",7],["Desk 7 to North Pier · 18:25",1],["Ferry desk to Chart House · 18:32 (what-if)",6]];
+ return '<section class="trial"><h4>Try the permit checker</h4><p>First test time alone. Then switch on all three checks and compare the rows.</p><div class="switches">'+["Time","Sender","Recipient"].map((v,i)=>'<label><input data-mask="'+(1<<i)+'" type="checkbox" '+(mask&(1<<i)?"checked":"")+'>'+v+'</label>').join("")+'</div><button id="run-test">Test these checks</button><ul>'+samples.map(([name,bits])=>'<li>'+name+' <b>'+(ran?((bits&mask)===mask?"Fits":"Review"):"—")+'</b></li>').join("")+'</ul><small>Trials recorded · Time alone '+(test.broad?"✓":"—")+' / All three '+(test.full?"✓":"—")+'</small></section>';
 }
-function dispatch() {
-  return mix("HELP","ALERT","QUEUE")+group(forms.dispatch,"d")+'<div class="toolbox">'+action("seal",draft().sealed?"Snapshot sealed":"Seal original records")+
-    (draft().sealed?action("originals","Download sealed JSON"):"")+'</div>';
+function render(){
+ const {i,j,r,ch}=get(),signed=s.pos<s.done,entry=j===3;
+ $("position").textContent="Chapter "+(ch+1)+" / 5 · Scene "+(i+1)+" / 15";$("back").hidden=s.pos===0;
+ const question=entry?"Can you apply this skill to a fresh set of slips?":r.tasks[j].q;
+ const header='<div class="section-title"><p class="eyebrow">Chapter '+(ch+1)+' · '+safe(chapters[ch][0])+'</p><h2 id="task-title" tabindex="-1">'+safe(entry?chapters[ch][3]:r.name)+'</h2></div>';
+ const view='<div class="screen"><div class="screen-top"><span class="lamp"></span> Harbour projector <span id="frame-count"></span></div><canvas id="film" role="img" aria-describedby="caption"></canvas><p id="caption"></p><div class="player"><button id="prev-frame" aria-label="Previous frame">‹</button><button id="play"></button><button id="next-frame" aria-label="Next frame">›</button><div id="frame-dots" aria-label="Scene frames"></div></div></div>';
+ const evidence='<div class="evidence"><h3>Evidence slips</h3><p>Open a slip to see what that source recorded.</p>'+r.ids.map(slip).join("")+'<button class="archive-link" id="all-records">Search the full log desk</button></div>';
+ const kind=entry?"Logbook entry":{choose:"Choose one",pair:"Pick two",order:"Put in order",number:"Read a number"}[r.tasks[j].kind];
+ const instruction=entry?"Complete three short evidence checks. Then return to the night case and write a chapter note of at least eight words. Your instructor reviews the explanation.":{choose:"Select one answer.",pair:"Select exactly two answers. Click a choice again to remove it.",order:"Click each item from earliest to latest. Click a selected item to remove it and try again.",number:"Enter a whole number from the evidence."}[r.tasks[j].kind];
+ const hint=entry?["Name the paper wait and the completed print job.","Use both the event time and the delivery time.","Compare the user and inside address on the two slips.","Compare sender, recipient and window on H4.","Start with “The records show…”. Then add “We still need…” and name the owner."][ch]:r.tasks[j].hint;
+ const notes=entry?fieldExercise(ch,signed)+'<p class="return-note">Back to the night watch</p><p>'+safe(chapters[ch][4])+'</p><label class="entry"><span>My shift note</span><textarea id="note" maxlength="1200" rows="4" '+(signed?"readonly":"")+'>'+safe(s.entries[ch]||"")+'</textarea></label>':exercise(r.tasks[j],j);
+ const noteEvidence=entry?["bell queue health","late file buffer","nia sol read","permit ferry night","nia read night blind owner"][ch].split(" ").map(slip).join(""):"";
+ $("station").innerHTML=header+'<div class="workgrid"><div class="left">'+(entry?'<div class="note-art"><span class="book-mark" aria-hidden="true">≋</span><p class="eyebrow">Chapter logbook</p><h3>'+safe(chapters[ch][3])+'</h3></div><div class="evidence"><h3>Look back at the originals</h3>'+noteEvidence+'</div>':view+evidence)+'</div><article class="task"><div class="step-head"><span class="eyebrow">'+kind+'</span><span>'+(entry?"Chapter note":"Decision "+(j+1)+" of 3")+'</span></div><div class="segments">'+[0,1,2].map(n=>'<i class="'+(n<=j?"lit":"")+'"></i>').join("")+'</div><h3>'+safe(question)+'</h3><p class="directions">'+instruction+'</p>'+(i===10&&j===1?trial():"")+notes+'<details class="hint"><summary>Give me a hint</summary><p>'+safe(hint)+'</p></details><div id="feedback" role="status"></div><div class="actions"><button id="check" class="primary" '+(signed?'hidden':'')+'>'+(entry?"Save my entry":"Check my answer")+'</button><button id="next" class="primary" '+(signed?'':'hidden')+'>'+nextLabel()+'</button></div></article></div>';
+ if(signed)successMessage();
 }
-function sorting() {
-  const choices = [2,0,4,1,3].map(i=>forms.routes[i][1]);
-  return '<div class="sorting">'+forms.routes.map(([id],i)=>'<div>'+slip(id)+draw("Route "+id+" to its question","route"+i,choices)+
-    (choices[draft()["route"+i]]?'<p class="tray">Filed for review · '+esc(choices[draft()["route"+i]])+'</p>':"")+'</div>').join("")+'</div>';
+function nextLabel(){return s.pos===49?"Finish my shift":get().j===2&&get().i%3===2?"Write chapter note":get().j>=2?"Next scene":"Next decision";}
+function showFrame(auto=false,animate=true){
+ const {i,r}=get();clearInterval(interval);dispose();playing=auto;beat=Math.max(0,Math.min(2,beat));s.beat[i]=beat;save();
+ $("caption").textContent=r.beats[beat];$("film").setAttribute("aria-label",films[i][beat].join(" · "));$("frame-count").textContent="Frame "+(beat+1)+" / 3";
+ $("frame-dots").innerHTML=[0,1,2].map(n=>'<button data-frame="'+n+'" aria-label="Show frame '+(n+1)+'" aria-pressed="'+(n===beat)+'"></button>').join("");
+ $("play").textContent=playing?"Pause story":beat===2?"Replay story":"Play story";$("prev-frame").disabled=beat===0;$("next-frame").disabled=beat===2;
+ dispose=makeProjector($("film"),i,beat,!s.motion||!animate);
+ if(auto)interval=setTimeout(()=>{if(document.hidden){showFrame(false);return;}if(beat<2){beat++;showFrame(true);}else showFrame(false);},6500);
 }
-const sequence = ["AUTH","VPN","FILE","RELAY"];
-const arrivalOrder = [...sequence].sort((a,b)=>record(a).received.localeCompare(record(b).received));
-function shownTime(id) {
-  if (id === "VPN") {
-    if (draft().offset == null || draft().offset === "") return "Convert gateway clock";
-    const minutes = 335 - [0,300,330,360][Number(draft().offset)];
-    return new Date(Date.UTC(2026,10,18,0,minutes)).toISOString().slice(11,19)+" UTC";
-  }
-  return {AUTH:"00:02:10 UTC",FILE:"00:06:30 UTC",RELAY:"00:09:40 UTC"}[id];
+function msg(text,good=false){const e=$("feedback");e.className=good?"right":"retry";e.textContent=text;}
+function successMessage(){const {j,r,ch}=get();msg(j===3?"Saved in your logbook. Your instructor can review this note.":r.tasks[j].why,true);}
+function check(){
+ const {i,j,r,ch}=get();if(s.pos!==s.done)return;
+ if(j===3){const wrong=fieldChecks[ch].fields.findIndex((field,n)=>String((s.checks[ch]||[])[n]||"").trim().toLowerCase()!==field[1].toLowerCase());if(wrong>=0){msg("Check the field “"+fieldChecks[ch].fields[wrong][0]+"”. "+fieldChecks[ch].hint);$("station").querySelector('[data-fieldcheck="'+wrong+'"]').focus();return;}if((s.entries[ch]||"").trim().split(/\s+/).filter(Boolean).length<8){msg("Add a sentence of at least eight words. Use a detail from the slips and explain what it tells you.");return;}}
+ else{
+ const q=r.tasks[j],a=s.tries[s.pos]||[];
+ if(i===10&&j===1&&!(s.tests.broad&&s.tests.full)){msg("Use the permit checker twice. Run Time alone, then run Time, Sender and Recipient together.");return;}
+ const sorted=v=>v.slice().sort((a,b)=>a-b).join(",");
+ const ok=q.kind==="number"?a[0]!==undefined&&String(a[0]).trim()!==""&&Number(a[0])===q.answer[0]:q.kind==="pair"?sorted(a)===sorted(q.answer):a.join()===q.answer.join();
+ if(!ok){msg((a.length===0?"Start with the evidence slips. ":"Take another look. ")+q.hint);return;}}
+ s.done++;save();successMessage();$("check").hidden=true;$("next").hidden=false;
+ $("station").querySelectorAll(".option,#number").forEach(el=>el.disabled=true);if($("note")){$("note").readOnly=true;document.querySelectorAll("[data-fieldcheck]").forEach(el=>el.readOnly=true);}
+ $("next").focus({preventScroll:true});
 }
-function clock() {
-  return mix("CLOCK","VPN")+draw("Offset to subtract from gateway time 05:35","offset",["0 hours","5 hours","5 hours 30 minutes","6 hours"])+
-    '<p class="readout" id="utc">Converted gateway time · '+shownTime("VPN")+'</p>'+
-    '<div class="reel" aria-label="Arrival order">'+arrivalOrder.map(id=>'<span data-arrival="'+id+'"><b>'+id+'</b><small>'+record(id).received+'</small></span>').join("")+'</div>'+
-    action("replay","Play arrival reel")+'<p id="replay-caption" class="fine" aria-live="polite">Collector arrival times in UTC. Playback compresses the wait.</p>'+
-    '<h3>Assemble the event-time reel</h3><p>Click the earliest source event first. Each click adds a strip to your cut.</p><div class="toolbox">'+
-    ["RELAY","FILE","AUTH","VPN"].map(id=>'<button data-strip="'+id+'" '+(picks("order").includes(id)?"disabled":"")+'>'+id+' · '+shownTime(id)+'</button>').join("")+'</div>'+
-    '<ol class="cut">'+picks("order").map(id=>'<li><strong>'+id+'</strong><small>'+shownTime(id)+'</small></li>').join("")+'</ol>'+action("undo","Undo last strip")+action("clear-reel","Clear reel");
+function selectOpt(n){
+ if(s.pos<s.done)return;const q=get().r.tasks[get().j],a=s.tries[s.pos]||[];
+ if(q.kind==="choose")s.tries[s.pos]=[n];
+ else if(a.includes(n))s.tries[s.pos]=a.filter(v=>v!==n);
+ else if(q.kind==="pair"&&a.length===2){msg("Two choices are selected. Click one to remove it before adding another.");return;}
+ else s.tries[s.pos]=[...a,n];save();
+ document.querySelectorAll("[data-opt]").forEach(el=>{const at=s.tries[s.pos].indexOf(Number(el.dataset.opt));el.classList.toggle("selected",at>=0);el.setAttribute("aria-pressed",String(at>=0));el.querySelector("i").textContent=at>=0?(q.kind==="order"?at+1:"✓"):(q.kind==="choose"?"○":"·");});$("feedback").textContent="";
 }
-function threadBoard() {
-  const comparisons=[
-    ["IP matches, but AUTH names Mina and GUEST names Eli.","Account and public IP match between AUTH and VPN.","PRESS identifies the spooler; it supplies no matching account."],
-    ["M-42 identifies the VPN session. FILE records an address instead.","This is the public side of the tunnel. FILE observed the internal side.","VPN assigned 10.4.9.27. FILE observed client 10.4.9.27."],
-    ["FILE and RELAY record the same client within three minutes and ten seconds.","The spooler has a different internal address."],
-    ["Two different accounts appear among the candidate originals.","The IP grouping includes two accounts. The device and assigned address help distinguish them."]
-  ];
-  return mix("AUTH","GUEST","VPN","FILE","RELAY","ALERT")+'<div class="threads">'+forms.links.map(([id,prompt,choices],i)=>
-    '<div class="thread"><strong>'+id+'</strong><i aria-hidden="true"></i>'+draw(prompt,"link"+i,choices)+
-    (comparisons[i][draft()["link"+i]]?'<p class="comparison">'+comparisons[i][draft()["link"+i]]+'</p>':"")+'</div>').join("")+'</div>';
+function download(blob,name){const a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);}
+function report(){let out=["SIGNAL HARBOUR | HARBOUR AFTER DARK","Completed night watch | fictional training records"];chapters.forEach((c,ch)=>{out.push("\nCHAPTER "+(ch+1)+" | "+c[0],"My note: "+s.entries[ch],"Practice case: "+fieldChecks[ch].title);fieldChecks[ch].fields.forEach(([prompt],n)=>out.push("  "+prompt+" — "+s.checks[ch][n]));rounds.slice(ch*3,ch*3+3).forEach(r=>{out.push(r.name+" · source slips "+r.ids.map(id=>slips[id][0]).join(", "));r.tasks.forEach(q=>out.push("  "+q.why));});});return out.join("\n");}
+function completed(){home();$("reward").hidden=false;$("learner").focus();$("reward").scrollIntoView({block:"center"});}
+function archive(){
+ const content=$("journal-content");
+ content.innerHTML='<p>The log desk brings records from different systems into one place. In security work, a tool that does this and helps find patterns is called a SIEM.</p><label class="entry"><span>Search the 19 original slips</span><input id="find-slip" type="search" placeholder="Try Desk-7, 18:25 or a slip number"></label><p id="matches" role="status"></p><div id="found"></div><div class="actions"><button id="save-sources">Save a copy of the sources</button><button id="show-notes">Read my notes</button></div>';
+ $("journal").querySelector("h2").textContent="The log desk";
+ function search(){const term=$("find-slip").value.trim().toLowerCase();const keys=Object.keys(slips).filter(k=>slips[k].join(" ").toLowerCase().includes(term));$("matches").textContent=keys.length+" matching slips";$("found").innerHTML=keys.map(slip).join("");}
+ $("find-slip").oninput=search;$("save-sources").onclick=()=>download(new Blob([JSON.stringify(Object.values(slips).map(([id,source,time,reading,original])=>({id,source,time,reading,original})),null,2)],{type:"application/json"}),"Harbour-Original-Slips.json");$("show-notes").onclick=journal;search();if(!$("journal").open)$("journal").showModal();$("find-slip").focus();
 }
-const rules = ["Match approved source","Match approved destination","Inside approved UTC window"];
-function model() {
-  const flags = picks("rules");
-  const evaluated = draft().tested === flags.join("|");
-  return mix("JOB","PRESS","RELAY")+'<fieldset><legend>Ticket conditions to enforce together</legend>'+rules.map((label,i)=>
-    '<label class="check"><input type="checkbox" data-rule="'+i+'" '+(flags.includes(i)?"checked":"")+'>'+label+'</label>').join("")+'</fieldset>'+
-    action("test","Run ticket model","ink")+'<div class="test-sheet"><table><caption>Two observed transfers and three fictional test inputs</caption><thead><tr><th>Flow</th><th>Sender</th><th>Destination</th><th>UTC</th><th>Model result</th></tr></thead><tbody>'+
-    flows.map(([id,ip,dest,time],i)=>{
-      const checks = [ip==="10.4.8.12",dest==="press.example",time>="00:05:00" && time<="00:15:00"];
-      const passes = flags.every(n=>checks[n]);
-      return '<tr><th>'+id+'</th><td>'+ip+'</td><td>'+dest+'</td><td>'+time+'</td><td class="'+(evaluated?(passes?"allowed":"reviewed"):"")+'" style="--n:'+i+'">'+(evaluated?(passes?"Fits model":"Review"):"Awaiting run")+'</td></tr>';
-    }).join("")+'</tbody></table></div>'+draw("Which observed flow needs review under PR-88?","transfer",["PRESS","RELAY","Both fit PR-88"]);
+function journal(){
+ let legacy="";try {const old=JSON.parse(localStorage.getItem("north-quay-midnight-edition-v1"));if(old?.passed===8&&old.report)legacy='<details><summary>Previous Midnight Edition hand-off</summary><pre>'+safe(old.report)+'</pre></details>';}catch{}
+ $("journal").querySelector("h2").textContent="My logbook";$("journal-content").innerHTML='<button class="archive-link" id="open-archive">Search the full log desk</button><p>'+s.done+' of 50 activities signed. '+(storageOK?"Your work saves in this browser.":"Storage is unavailable. Keep this tab open.")+'</p>'+chapters.map((c,i)=>'<section><small>Chapter '+(i+1)+'</small><h3>'+safe(c[3])+'</h3><p>'+safe(s.entries[i]||(s.done<i*10+10?"Your chapter note appears here when you write it.":""))+'</p></section>').join("")+legacy;
+ $("open-archive").onclick=archive;if(!$("journal").open)$("journal").showModal();
 }
-const citations = ["JOB","VPN","FILE","GAP","PRESS","RELAY"];
-function editor() {
-  return mix(...citations)+'<div class="galleys">'+forms.edits.map((e,i)=>{
-    const current = e.choices[draft()["edit"+i]];
-    return '<section><p class="kicker">Draft line '+(i+1)+'</p><p class="draft-line '+(current?"struck":"")+'">'+e.claim+'</p>'+
-      (current?'<p class="insert">'+esc(current)+'</p>':"")+draw("Replacement wording","edit"+i,e.choices)+draw("Cite the verifying record","cite"+i,citations)+'</section>';
-  }).join("")+'</div>';
-}
-function enquiries() {
-  return '<div class="mail">'+forms.enquiries.map(([owner,ask,reply],i)=>'<article><h3>'+owner+'</h3><p>'+ask+'</p>'+
-    (picks("opened").includes(i)?'<blockquote><b>Reply received</b><br>'+esc(reply)+'</blockquote>':'<button data-letter="'+i+'">Send simulated enquiry</button>')+'</article>').join("")+'</div>'+
-    draw("What did the approval enquiry establish?","owner",["PR-88 covers both transfers.","The register covers the spooler delivery only.","The ticket covers Mina’s laptop if the size is smaller."])+
-    draw("Which uncertainty remains after the endpoint reply?","gap",["Whether any connection was recorded","Which account the VPN logged","The sending process and transferred content"]);
-}
-const reportIds = ["HELP","EDGE","VPN","FILE","PRESS","GAP","RELAY"];
-function finalDesk() {
-  return '<p>Use the source archive or unfold the records here. Cite the four originals that establish Mina’s VPN session, file operation, external transfer and endpoint visibility gap.</p>'+mix(...reportIds)+
-    '<fieldset><legend>Citations for the incident lead</legend>'+reportIds.map(id=>'<label class="check inline"><input type="checkbox" data-ref="'+id+'" '+(picks("refs").includes(id)?"checked":"")+'>'+id+'</label>').join("")+'</fieldset>'+
-    group(forms.handoff,"final")+'<label class="control"><span>In your own words, what should the next analyst check and why? Write at least eight words.</span><textarea id="note" maxlength="1800" rows="3">'+esc(draft().note)+'</textarea></label>'+
-    action("proof","Preview hand-off")+'<pre id="proof" '+(draft().proof?"":"hidden")+'>'+esc(reportText())+'</pre>';
-}
-function reportText() {
-  return ["NORTH QUAY PRESS | MORNING HAND-OFF","18 November 2026 | 00:00–00:15 UTC",
-    "Scope: Mina, DESIGN-07, VPN M-42 and 10.4.9.27.","Cited sources: "+picks("refs").join(", "),
-    ...forms.handoff.map(([label,choices],i)=>label+": "+(choices[draft()["final"+i]]||"[choose wording]")),
-    "Analyst follow-up: "+(draft().note||"[add your note]")].join("\n\n");
-}
-const tools = [dispatch,sorting,clock,threadBoard,model,editor,enquiries,finalDesk];
-function render(focus=false) {
-  sequenceVersion++;
-  const i=state.current,s=stations[i];
-  $("station").innerHTML='<header class="station-head"><p class="kicker">'+s.tool+' / '+String(i+1).padStart(2,"0")+' of 08</p><h2>'+s.name+'</h2><p>'+s.goal+'</p></header>'+
-    '<section class="lesson"><h3>At your desk</h3><p>'+s.lesson+'</p><details><summary>Worked example</summary><p>'+s.example+'</p></details><details><summary>Field guide for beginners</summary><p>An emitter is the system that created the record. A client is the device using a service. A VPN assigns a temporary internal address to a connected device. MFA means multi-factor authentication. Z means UTC. In these proxy records, bytes_sent counts data leaving the client. A mebibyte (MiB) is 1,048,576 bytes. EDR is the endpoint sensor that reports activity on a device.</p></details></section>'+
-    '<section class="assignment"><h3>Your assignment</h3><p>'+s.action+'</p></section><div id="instrument">'+tools[i]()+'</div>'+
-    '<section class="practice" id="practice"><h3>Two practice clippings</h3><p>Try the same skill on these separate examples. Keep their evidence out of the overnight case report.</p>'+
-    clippings[i].map(([title,raw,prompt,,hint],n)=>'<article><h4>'+esc(title)+'</h4><pre>'+esc(raw)+'</pre><label class="control"><span>'+esc(prompt)+'</span><input data-clipping="'+n+'" value="'+esc(draft()["clip"+n])+'" maxlength="80" autocomplete="off"></label><details><summary>Clipping hint</summary><p>'+esc(hint)+'</p></details></article>').join("")+'</section>'+
-    '<div class="submit"><details><summary>Need a hint?</summary><p>'+s.hint+'</p></details><p id="feedback" role="status"></p>'+
-    action("grade",i===7?"Sign the hand-off":"Check station","ink")+' <button id="next" '+(i>=state.passed?"disabled":"")+'>'+ (i===7?"View signed edition":"Next station")+'</button></div>';
-  nav();
-  if (focus) $("station").focus();
-}
-function refreshTool() {
-  sequenceVersion++;
-  const openSlips=[...$("instrument").querySelectorAll("details[open][data-slip]")].map(el=>el.dataset.slip);
-  const old=document.activeElement;
-  const selector=old?.dataset.field?'[data-field="'+old.dataset.field+'"]':old?.dataset.rule?'[data-rule="'+old.dataset.rule+'"]':null;
-  $("instrument").innerHTML=tools[state.current]();
-  for(const id of openSlips){const slip=$("instrument").querySelector('[data-slip="'+id+'"]');if(slip)slip.open=true;}
-  if(selector) $("instrument").querySelector(selector)?.focus({preventScroll:true});
-}
-function goto(i) { state.current=i;save();render(true); }
-function fail(message) { $("feedback").className="retry";$("feedback").textContent=message; }
-function checkGroup(items,prefix) {
-  const bad=items.findIndex((item,i)=>String(draft()[prefix+i])!==String(item[2]));
-  return bad<0?"":"Review “"+items[bad][0]+"”. Use the source slip or worked example above.";
-}
-function validate() {
-  const d=draft();
-  switch(state.current) {
-    case 0: return checkGroup(forms.dispatch,"d") || (!d.sealed?"Seal the original records before moving on.":"");
-    case 1: {
-      const bad=[1,3,0,4,2].findIndex((v,i)=>String(d["route"+i])!==String(v));
-      return bad<0?"":"Reopen "+forms.routes[bad][0]+". Read its action or result and choose the question that field directly answers.";
-    }
-    case 2:
-      if(d.offset!=="2") return "The source offset is +05:30. Subtract the full offset, including minutes.";
-      if(!d.replayed) return "Play the arrival reel once and compare its first record with the earliest source event.";
-      return picks("order").join()===sequence.join()?"":"Compare the event times printed on your strips. Undo or clear your reel to fix the order.";
-    case 3: {
-      const bad=forms.links.findIndex((row,i)=>String(d["link"+i])!==String(row[3]));
-      return bad<0?"":"Recheck the "+forms.links[bad][0]+" link. "+forms.links[bad][4];
-    }
-    case 4:
-      if(!d.triedBroad) return "Run a trial with fewer than three conditions. Find an extra flow that passes.";
-      if(picks("rules").length!==3 || d.tested!==picks("rules").join("|")) return "Compare all five outcomes with JOB. Run the model with every ticket condition enforced.";
-      return d.transfer==="1"?"":"Which actual sender and destination fall outside the ticket?";
-    case 5: {
-      const bad=forms.edits.findIndex((e,i)=>String(d["edit"+i])!==String(e.answer)||citations[d["cite"+i]]!==e.source);
-      return bad<0?"":"Check the wording and citation for draft line "+(bad+1)+". Match the specific field to the edited statement.";
-    }
-    case 6:
-      if(![0,1].every(i=>picks("opened").includes(i))) return "Read both the change owner’s and the endpoint custodian’s replies.";
-      return d.owner==="1" && d.gap==="2"?"":"The change register covers one route. The custodian describes a limit on process and content evidence.";
-    case 7:
-      if(picks("refs").slice().sort().join()!==["FILE","GAP","RELAY","VPN"].join()) return "Cite one original each for the session, file read, laptop transfer and coverage gap.";
-      return checkGroup(forms.handoff,"final") || ((d.note||"").trim().split(/\s+/).length<8?"Write a follow-up of at least eight words. Your instructor reviews its reasoning.":"") || (!d.proof?"Preview your completed hand-off before signing.":"");
-  }
-}
-const debriefs=[
-  "Scope recorded and originals sealed. Press Operations can examine the queue delay while you review the security lead.",
-  "You routed five observations to the questions their source systems can answer.",
-  "The identity failures came first. Buffering made AUTH arrive after the outbound flow.",
-  "Mina’s account and assigned address connect the records. The shared public IP also includes Eli.",
-  "Your tested rule admits only PRESS. RELAY is smaller, but its client and destination fall outside PR-88.",
-  "The corrected briefing reflects the original direction, VPN result and coverage gap.",
-  "You have a scoped approval check and a documented evidence gap for the incoming analyst.",
-  "Hand-off signed. Your instructor can review the written follow-up in your exported report."
-];
-function grade() {
-  const message=validate();
-  if(message) return fail(message);
-  const normalise=value=>String(value??"").trim().toLowerCase().replace(/\s+/g," ");
-  const bad=clippings[state.current].findIndex((clip,i)=>!clip[3].some(answer=>normalise(answer)===normalise(draft()["clip"+i])));
-  if(bad>=0){fail("Your main assignment checks out. Revisit the practice clipping “"+clippings[state.current][bad][0]+"” and use its hint if needed.");document.querySelector('[data-clipping="'+bad+'"]').focus();return;}
-  if(state.current===7) state.report=reportText();
-  state.passed=Math.max(state.passed,state.current+1);
-  save();nav();
-  $("feedback").className="success";$("feedback").textContent=debriefs[state.current];
-  $("next").disabled=false;
-}
-async function replay(button) {
-  const version=++sequenceVersion;
-  button.disabled=true;
-  for(const id of arrivalOrder) {
-    if(version!==sequenceVersion) return;
-    document.querySelectorAll("[data-arrival]").forEach(el=>el.classList.toggle("active",el.dataset.arrival===id));
-    $("replay-caption").textContent=id+" arrived at "+record(id).received+" UTC. Compare its source time on the strip below.";
-    if(!state.paused) await new Promise(resolve=>setTimeout(resolve,560));
-  }
-  if(version===sequenceVersion) {
-    put("replayed",true);button.disabled=false;
-    $("replay-caption").textContent="Arrival order: "+arrivalOrder.join(" · ")+". AUTH arrived last after buffering.";
-  }
-}
-function download(value,type,filename) {
-  const a=document.createElement("a");
-  const url=URL.createObjectURL(new Blob([value],{type}));a.href=url;a.download=filename;a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1200);
-}
-function originalCopy() {return JSON.stringify({edition:"North Quay Press",date:"2026-11-18",receiptTimezone:"UTC",records},null,2);}
-function toggle(field,value,on) { const values=new Set(picks(field));if(on) values.add(value);else values.delete(value);put(field,[...values]); }
-function updateProof() { if(state.current===7){put("proof",false);$("proof").hidden=true;} }
-$("station").addEventListener("change",e=>{
-  const n=e.target;
-  if(n.dataset.field) {put(n.dataset.field,n.value);updateProof();if([1,2,3,5].includes(state.current))refreshTool();}
-  if(n.dataset.rule!==undefined){toggle("rules",Number(n.dataset.rule),n.checked);put("tested",null);refreshTool();}
-  if(n.dataset.ref){toggle("refs",n.dataset.ref,n.checked);updateProof();}
-  $("feedback").textContent="";
-});
-$("station").addEventListener("input",e=>{
-  if(e.target.id==="note"){put("note",e.target.value);updateProof();}
-  if(e.target.dataset.clipping!==undefined)put("clip"+e.target.dataset.clipping,e.target.value);
-});
 $("station").addEventListener("click",e=>{
-  const b=e.target.closest("button");if(!b)return;
-  if(b.id==="next"){if(state.current===7) $("name").focus();else goto(state.current+1);return;}
-  if(b.dataset.strip){put("order",[...picks("order"),b.dataset.strip]);refreshTool();return;}
-  if(b.dataset.letter!==undefined){toggle("opened",Number(b.dataset.letter),true);refreshTool();return;}
-  switch(b.dataset.action){
-    case "grade":grade();break;
-    case "seal":put("sealed",true);refreshTool();break;
-    case "originals":download(originalCopy(),"application/json","North-Quay-originals.json");break;
-    case "replay":replay(b);break;
-    case "undo":put("order",picks("order").slice(0,-1));refreshTool();break;
-    case "clear-reel":put("order",[]);refreshTool();break;
-    case "test":if(picks("rules").length<3)put("triedBroad",true);put("tested",picks("rules").join("|"));refreshTool();break;
-    case "proof":put("proof",true);$("proof").textContent=reportText();$("proof").hidden=false;break;
-  }
+ const b=e.target.closest("button");if(!b)return;
+ if(b.dataset.opt!==undefined){selectOpt(Number(b.dataset.opt));return;}
+ if(b.dataset.frame!==undefined){beat=Number(b.dataset.frame);showFrame(false);return;}
+ switch(b.id){case "all-records":archive();break;case "check":check();break;case "next":if(s.pos===49)completed();else desk(s.pos+1);break;
+ case "play":if(playing)showFrame(false,false);else{if(beat===2)beat=0;showFrame(true);}break;
+ case "prev-frame":beat--;showFrame(false);break;case "next-frame":beat++;showFrame(false);break;
+ case "run-test":{const mask=s.tests.mask??1;s.tests.last=mask;if(mask===1)s.tests.broad=true;if(mask===7)s.tests.full=true;save();updateTrial();break;}}
 });
-$("nav").addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b&&!b.disabled)goto(Number(b.dataset.go));});
-$("start").onclick=()=>state.passed===8?$("name").focus():goto(Math.min(state.passed,7));
-$("motion").onclick=()=>{state.paused=!state.paused;setMotion();save();};
-reduced.addEventListener("change",e=>{state.paused=e.matches;setMotion();save();});
-function searchArchive() {
-  const term=$("query").value.trim().toLowerCase();
-  const results=records.filter(r=>(!$("source").value||r.source===$("source").value)&&[r.id,r.source,r.title,r.raw,r.received].join(" ").toLowerCase().includes(term));
-  $("records").innerHTML=results.map(r=>slip(r.id)).join("");
-  $("result-count").textContent=results.length+" of "+records.length+" records match.";
-}
-$("source").innerHTML='<option value="">All sources</option>'+[...new Set(records.map(r=>r.source))].map(s=>'<option>'+esc(s)+'</option>').join("");
-$("cabinet-btn").onclick=()=>{searchArchive();$("cabinet").showModal();$("query").focus();};
-$("query").oninput=searchArchive;$("source").onchange=searchArchive;$("close").onclick=()=>$("cabinet").close();
-$("report").onclick=()=>{if(state.report)download(state.report,"text/plain;charset=utf-8","North-Quay-hand-off.txt");};
-$("certificate").onclick=()=>{
-  if(state.passed!==8)return;
-  const name=$("name").value.trim();
-  if(!name){$("reward-status").textContent="Enter the name you want printed on your certificate.";$("name").focus();return;}
-  const canvas=document.createElement("canvas");canvas.width=1500;canvas.height=940;
-  const ctx=canvas.getContext("2d");ctx.fillStyle="#f5f2e8";ctx.fillRect(0,0,1500,940);
-  ctx.strokeStyle="#242c26";ctx.lineWidth=4;ctx.strokeRect(42,42,1416,856);
-  ctx.fillStyle="#242c26";ctx.textAlign="center";
-  function line(s,y,font){ctx.font=font;ctx.fillText(s,750,y,1250);}
-  line("NORTH QUAY PRESS   /   CASE RELAY",155,"bold 30px monospace");
-  line("Certificate of Completion",300,"bold 75px Georgia");
-  line(name,460,"italic 80px Georgia");
-  line("The Midnight Edition",575,"bold 52px Georgia");
-  line("Security logging, event correlation and SOC investigation",650,"32px system-ui");
-  line("Eight stations completed   •   "+new Date().toLocaleDateString(),790,"26px monospace");
-  const a=document.createElement("a");a.download="Midnight-Edition-Certificate.png";a.href=canvas.toDataURL("image/png");a.click();
-  $("reward-status").textContent="Certificate download started.";
-};
-setMotion();render();
+function updateTrial(){const node=$("station").querySelector(".trial");if(node){const active=document.activeElement;const selector=active?.dataset.mask?'[data-mask="'+active.dataset.mask+'"]':"#run-test";node.outerHTML=trial();document.querySelector(selector)?.focus({preventScroll:true});}}
+$("station").addEventListener("change",e=>{if(e.target.dataset.mask){let mask=s.tests.mask??1;mask^=Number(e.target.dataset.mask);s.tests.mask=mask;s.tests.last=null;save();updateTrial();}});
+$("station").addEventListener("input",e=>{if(s.pos<s.done)return;if(e.target.dataset.fieldcheck!==undefined){(s.checks[get().ch]||=[])[Number(e.target.dataset.fieldcheck)]=e.target.value;}if(e.target.id==="number")s.tries[s.pos]=[e.target.value];if(e.target.id==="note")s.entries[get().ch]=e.target.value;save();});
+$("route").onclick=e=>{const b=e.target.closest("button[data-ch]");if(!b||b.disabled)return;const start=Number(b.dataset.ch)*10;desk(s.done>=start+10?start:Math.min(s.done,49));};
+$("home").onclick=$("chart-btn").onclick=()=>home(true);$("back").onclick=()=>desk(s.pos-1);
+$("begin").onclick=()=>s.done===50?completed():desk(s.done);
+$("studies").onclick=journal;$("close-journal").onclick=()=>$("journal").close();
+function setMotion(v){s.motion=v;motion();save();if(inDesk&&get().j!==3)showFrame(v);}
+$("motion").onclick=()=>setMotion(!s.motion);preference.addEventListener("change",e=>setMotion(!e.matches));
+$("export").onclick=()=>{if(s.done===50)download(new Blob([report()],{type:"text/plain;charset=utf-8"}),"Signal-Harbour-Shift-Report.txt");};
+$("cert").onclick=()=>{if(s.done!==50)return;const name=$("learner").value.trim();if(!name){$("download-status").textContent="Enter your name first.";$("learner").focus();return;}
+ const cv=document.createElement("canvas");cv.width=1500;cv.height=1000;const c=cv.getContext("2d");c.fillStyle="#111f34";c.fillRect(0,0,1500,1000);c.drawImage($("coast"),62,65,1376,410);c.fillStyle="#fff2cd";c.textAlign="center";
+ const line=(txt,y,font)=>{c.font=font;c.fillText(txt,750,y,1250);};line("SIGNAL HARBOUR   /   NIGHT WATCH",540,"bold 24px monospace");line("Certificate of Completion",628,"bold 68px Georgia");c.fillStyle="#a7eed0";line(name,723,"italic 72px Georgia");c.fillStyle="#eff3f0";line("Harbour After Dark",795,"bold 40px Georgia");line("Security logging, event correlation and evidence-based handover",853,"28px sans-serif");line("15 scenes completed   ·   "+new Date().toLocaleDateString(),920,"23px monospace");cv.toBlob(b=>{if(b){download(b,"Harbour-After-Dark-Certificate.png");$("download-status").textContent="Your certificate download has started.";}},"image/png");};
+motion();home();

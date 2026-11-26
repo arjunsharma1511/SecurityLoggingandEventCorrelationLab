@@ -1,23 +1,21 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Investigate two transfers during a fictional midnight print run. A guided security logging and correlation lab.">
-<title>The Midnight Edition | Case Relay</title>
-<link rel="stylesheet" href="styles.css"><script defer src="cases.js"></script><script defer src="app.js"></script>
-</head>
-<body>
-<a class="skip" href="#station">Skip to current station</a>
-<header class="mast"><a href="#front" class="wordmark"><i aria-hidden="true">M</i> Midnight Edition</a><div><span id="meter"></span><button id="motion" type="button"></button></div></header>
-<main>
-<section class="front" id="front">
-<div class="lead"><p class="kicker">Case Relay / Field exercise 02</p><h1>The midnight<br><em>print run.</em></h1><p class="standfirst">The overnight press is running late. Two uploads appear in the logs. One belongs to the print run. Can you account for the other before the morning hand-off?</p><button class="ink" id="start">Open shift file</button> <a class="textlink" href="STUDENT-GUIDE.txt">Student field guide</a><p class="fine">8 stations · 75–95 minute class plan · Self-paced</p></div>
-<div class="press" role="img" aria-label="Animated print press producing two transfer receipts, one for a print spooler and one for a remote laptop."><div class="press-head"><b>NORTH QUAY PRESS</b><span>Overnight dispatch</span></div><div class="drum"></div><div class="press-window"><div class="roll"><p>TRANSFER RECEIPT <b>01</b></p><strong>Spooler to press</strong><small>00:08:12 UTC · 960 MiB sent</small><div class="barcode"></div><p>TRANSFER RECEIPT <b>02</b></p><strong>Laptop to relay</strong><small>00:09:40 UTC · 48 MiB sent</small><div class="barcode"></div></div></div><div class="rollers"><i></i><span></span><i></i></div></div>
-</section>
-<div class="layout" id="lab"><aside><h2>Shift file</h2><nav id="nav" aria-label="Stations"></nav><button id="cabinet-btn" class="light">Search source archive</button><a href="STUDENT-GUIDE.txt">Click-by-click guide</a></aside>
-<article id="station" tabindex="-1"></article></div>
-<section id="reward" hidden><p class="kicker">Completed shift</p><h2>Your signed edition</h2><p>Your hand-off is ready to share. Enter your name to issue your completion certificate.</p><label>Learner name <input id="name" maxlength="64" autocomplete="name"></label><button class="ink" id="certificate">Download certificate (PNG)</button><button id="report">Download case report (TXT)</button><p id="reward-status" role="status"></p></section>
-</main>
-<dialog id="cabinet"><div class="bar"><h2>Source archive</h2><button id="close">Close archive</button></div><p>Read-only fictional records from 18 November 2026. The archive preserves the original timestamps and fields.</p><label>Search text<input id="query" type="search" placeholder="Account, address, source, record ID…"></label><label>Generating source<select id="source"></select></label><p id="result-count" role="status"></p><div id="records"></div></dialog>
-<footer><b>North Quay Press · Training simulation</b><a href="#front">Back to front page</a></footer><noscript>Enable JavaScript to work through the shift.</noscript>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101c31"><title>Harbour After Dark · Security Logging Lab</title>
+<meta name="description" content="Learn to read security logs during a guided, animated night shift at Signal Harbour.">
+<link rel="stylesheet" href="styles.css"><script defer src="cases.js"></script><script defer src="harbour.js"></script><script defer src="projector.js"></script><script defer src="app.js"></script></head>
+<body><a class="skip" href="#main">Skip to the lab</a>
+<header class="top"><div class="wrap bar"><button class="brand" id="home"><span class="brand-icon" aria-hidden="true">≋</span> Signal Harbour</button>
+<div class="header-tools"><button id="studies">My logbook</button><button id="motion" aria-pressed="false">Pause motion</button></div></div></header>
+<main id="main" class="wrap" tabindex="-1">
+<section id="landing"><div class="poster"><canvas id="coast" aria-label="The harbour at night, with a sweeping lighthouse beam, a ferry crossing the water and lights in the print room." role="img"></canvas>
+<div class="poster-copy"><span class="eyebrow">Security logging &amp; event correlation</span><h1>Harbour<br><em>after dark.</em></h1><p>A printer stalls. A record arrives late. Two deliveries leave for different piers. Take the night watch and find out what the evidence really says.</p><button class="primary" id="begin">Start my shift</button></div></div>
+<div class="manifest"><span><b>15</b> short scenes</span><span><b>45</b> decisions</span><span><b>5</b> practice cases &amp; notes</span><span>80–100 min class plan · Self-paced</span></div>
+<section class="chart"><div class="topline"><div><p class="eyebrow">Your route through the harbour</p><h2>The night watch</h2></div><span id="count"></span></div><div id="route"></div></section>
+<div class="start-tip"><p><strong>New to logs?</strong> A log is a note a device keeps about something it saw. Start your shift, watch the first short scene, then open the printer’s slip to help a visitor.</p><a href="STUDENT-GUIDE.txt" target="_blank" rel="noopener">Student walkthrough (TXT)</a></div></section>
+<section id="desk" hidden><div class="desk-nav"><button id="chart-btn">‹ Shift map</button><span id="position"></span><button id="back" hidden>Previous decision</button></div>
+<div id="station"></div></section>
+<section id="reward" hidden><p class="eyebrow">Signal Harbour · Morning watch</p><h2>Shift complete.</h2><p>You traced the records from the first complaint to the morning handover. Your logbook includes your five notes and the evidence behind your decisions.</p><label for="learner">Name on your certificate</label><input id="learner" autocomplete="name" maxlength="64"><div class="actions"><button id="cert" class="primary">Download certificate (PNG)</button><button id="export">Download shift report (TXT)</button></div><p role="status" id="download-status"></p></section>
+</main><footer class="wrap"><span>Signal Harbour · Training simulation</span><a href="STUDENT-GUIDE.txt" target="_blank" rel="noopener">Student walkthrough</a></footer>
+<dialog id="journal"><div class="topline"><h2>My logbook</h2><button id="close-journal">Close</button></div><div id="journal-content"></div></dialog>
+<div id="sr" class="visually-hidden" role="status"></div><noscript>This interactive lab needs JavaScript. Enable it and reopen the page.</noscript>
 </body></html>

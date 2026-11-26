@@ -1,102 +1,130 @@
-THE MIDNIGHT EDITION
-Student field guide | North Quay Press
+HARBOUR AFTER DARK
+Student walkthrough | Security logging and event correlation
 
-An overnight print job was late. Two transfers reached different destinations.
-Your job is to explain the delay, decide which transfer fits the approved job,
-and leave the morning analyst enough evidence to continue the inquiry.
+YOUR NIGHT SHIFT
+A visitor’s map is late. Later, two desks use the same network and two
+deliveries leave for different piers. Piece together what happened and leave
+a clear note for the next person on duty. Everything happens in this page.
 
-Allow 75–95 minutes for the eight stations, practice clippings and final written
-briefing. The clock times are the times in the story. You can pause at any point.
+Start even if you have never used a security tool. A log is a note a device
+or service keeps about what it observed. A source is the device or service
+that made the note. To “correlate” means to see whether two or more records
+fit together. You will practise each idea before combining them.
 
-GET STARTED
-1. Open index.html or the link your instructor gave you.
-2. Click Open shift file. On a later visit, Resume shift opens the first
-   unfinished station. Your work is saved on this browser when storage is available.
-3. Read At your desk. Open Worked example or Field guide for beginners when a
-   term is unfamiliar. Then read Your assignment.
-4. Click a record headline to unfold its original fields. The time above the
-   source text is when the collector received it. The source text shows the
-   original event time. Click the headline again to fold it.
-5. Search source archive opens the full case in a read-only drawer. Choose a
-   generating source or enter text such as a user, IP or record ID. Open a
-   matching slip to read it. Close archive to return to your assignment.
-6. Each station has a main assignment and two small practice clippings.
-   The clippings are independent examples. Answer each short question from
-   the evidence printed directly above it.
-7. Click Check station. If you need to revise an answer, read the feedback,
-   open the appropriate hint, change the answer and check again. Retries are free.
-8. After a pass, click Next station. The Shift file index lets you revisit signed
-   stations. Pause motion switches off decorative movement and shortens replay.
+HOW TO START
+1. Open the lab link or index.html. Choose Start my shift. If you have
+   already started, choose Resume my shift on the same site and browser.
+2. Look at the Harbour projector. Read the sentence beneath the picture.
+   The three frames describe one idea. Use the right and left buttons or
+   the three dots to move through them at your own speed.
+3. Play story runs the three frames. Pause story holds the current frame.
+   Replay story starts it again. Pause motion in the top bar switches off
+   movement throughout the page. Every frame has a written explanation.
+4. Find Evidence slips. Click a numbered slip to open it. Read the ordinary
+   sentence first. The smaller original record shows exactly what the source
+   wrote. For example, result=printed means the printer finished that job.
+5. Read the one decision on your screen. On a phone, scroll down past the
+   slips to reach it. Each scene has three decisions.
+6. Click Check my answer. Read the explanation. Click Next decision and
+   eventually Next scene. There is no timer or penalty for a retry.
+7. My logbook shows your written chapter notes. Search the full log desk
+   lets you search all 19 case slips. Try a device name, time or slip number.
+   Select Save a copy of the sources to download the evidence. Close takes
+   you back to the same decision.
+8. Shift map shows your progress. Chapters open in order. Come back later
+   in the same browser profile at the same address to resume.
 
-STATION 1 | TAKE THE CALL | about 8 minutes
-Open HELP to read the operator’s complaint. Open ALERT to find the SIEM’s
-grouping field. Compare QUEUE with HELP. Choose the security scope, review
-window and evidence handling method. Click Seal original records. Download
-sealed JSON if you want a local copy. Answer the two practice clippings.
-Discuss why Press Operations and the incident analyst need different records.
+WHAT TO CLICK FOR EACH TYPE OF DECISION
+Choose one    Click one answer. You can change it before checking.
+Pick two      Click two answers. Click a highlighted answer to remove it.
+Put in order  Click the earliest event, then the next, then the last.
+              Numbers on your selections show your sequence. Remove an
+              event by clicking it again. Select it again to put it last.
+Read a number Type the number only. The question supplies the unit.
+Chapter note  Open the new practice slips. Fill in the three short fields
+              using those slips. Next, under “Back to the night watch”,
+              return to the original harbour case. Write at least eight
+              words answering the question. Click Save my entry.
+Give me a hint points you towards a source or a comparison. Each practice
+case also has a separate Help with these new slips control.
 
-STATION 2 | ROUTE THE RECORDS | about 10 minutes
-Open each record in turn. Find the field that names the action or result.
-Under that slip, choose the question this source can answer. Read the tray
-label to see where you filed it. Complete all five routes. In the clippings,
-read the summary count and identify the upstream host. Explain why the
-number of SIEM rows can differ from the number of observed failures.
+YOUR ROUTE
 
-STATION 3 | REPAIR THE CLOCK | about 12 minutes
-Open CLOCK and VPN. Choose the offset to subtract from the gateway’s local
-clock. Read the conversion preview. Click Play arrival reel and let it finish.
-Look at the SIEM arrival order. Now click the event strips in the order the
-activity actually happened. Your cut appears in the dark strip area. Use Undo
-last strip or Clear reel to correct it. For the practice clippings, check the
-calendar day as well as the hour. Compare two UTC timestamps to measure delay.
+CHAPTER 1 | Read a record
+Scene 1, The quiet printer. Start with the visitor’s question. Open the print
+room slip and look for the reason, waiting time and result. Notice the
+difference between reporting a problem and recording how the job ended.
+Scene 2, Who saw what? Open the gate reader’s slip. Read each field. Can
+it tell you which gate opened? Can it tell you why the person came?
+Scene 3, Close the first ticket. Open the ticket and the two printer records.
+Order them by time, then pick the records that show completed work.
+Practice case, The missing labels. Use the L slips for the three fields.
+Return to the P4 printer job for your own note. Name the source and result.
 
-STATION 4 | TRACE THE SESSION | about 10 minutes
-Read AUTH, GUEST and VPN. Look for repeated and conflicting values. Follow the
-VPN’s assigned address into FILE and a proxy record. Choose a link on each
-row. Read the comparison underneath, then open the original to verify it.
-Decide how much weight to put on the automatic alert. Use the practice records
-to distinguish a shared public address from an internal address reused later.
+CHAPTER 2 | Fix the clock
+Scene 4, Two clock faces. UTC is the common clock used to line up records.
+Here the gate is one hour ahead, so a local time of 20:15 would mean 19:15
+UTC. Use that operation on the gate time in the case.
+Scene 5, The late envelope. Watch which envelope waits. The event time tells
+you when the badge worked. The receipt time tells you when the log desk got
+the record. Convert to the same clock before subtracting.
+Scene 6, Choose the right window. Find the smallest offered period that
+includes BOTH target events. Keep the event and receipt times labelled.
+Practice case, The footbridge clock. Use its own two-hour offset. Enter a
+time as HH:MM and minutes as a number. For the chapter note, switch back
+to the original gate and explain the late arrival.
 
-STATION 5 | TEST THE APPROVAL | about 12 minutes
-Open JOB. Read its source, destination and UTC window. Switch on ONE condition
-and click Run ticket model. Look at the five rows. The first two are observed
-flows. The three test inputs show what your rule would do in other situations.
-Add conditions and rerun. The results return to Awaiting run whenever you
-change a switch. Compare all rows against the ticket, choose the actual flow
-needing review, and solve the practice clippings. Be ready to explain one
-mistake that a broad rule would have made.
+CHAPTER 3 | Follow the right desk
+Scene 7, One Wi-Fi, two people. A sign-in summary can count several failures
+in one record. Look for count. Compare the account on each successful login.
+Scene 8, Follow the address. Remote access lends a connected desk an inside
+address. Compare assigned on the session slip with client on the file slip.
+Then check the account too.
+Scene 9, Test a second explanation. Order the failures and successes. Look
+for what differs between the two successful sessions even on the same Wi-Fi.
+Practice case, Who held the address? An address can be given to a different
+desk later. Check who held it at the time of the file read. In your note,
+go back to Nia’s session and give two matching details.
 
-STATION 6 | REDLINE THE AI DRAFT | about 10 minutes
-Read one draft line. Open the relevant source slip above the editor. Choose
-replacement wording and cite the record containing the verifying field.
-The original line is crossed out and your edit appears immediately. Do this
-for all three lines. In the clippings, check transfer direction, units and the
-exact operation. If a draft sounds certain, find the field that supports it.
+CHAPTER 4 | Check the delivery
+Scene 10, Read the delivery permit. Open the change book. A permit says who
+may send, where the delivery may go, and when. Compare all three conditions.
+MB (megabyte) measures how much data travelled.
+Scene 11, Put the rule to work. Answer the first decision. On the second
+decision, find Try the permit checker. Select Time alone and click Test
+these checks. Read the three results. Turn on Sender and Recipient as well
+and click Test these checks again. Compare what changed. Then pick the two
+conditions the North Pier delivery missed. Finish the final time example.
+Scene 12, Which way did it go? Watch the outward and return journeys. Read
+sent_MB for data leaving the desk and received_MB for data coming back.
+The traffic desk counted data. Check whether it recorded the item name.
+Practice case, A second permit. Use the P slips to find a wrong destination
+and a late delivery. In your note, go back to ticket H4 and North Pier.
 
-STATION 7 | REQUEST A FOLLOW-UP | about 8 minutes
-Read what each correspondent could check. Click Send simulated enquiry on
-the relevant cards. All replies are local fictional training material.
-Read the replies before choosing what was learned and what is still unknown.
-Complete both clippings. Explain which enquiry helps operations continue
-while the analyst investigates the unresolved transfer.
+CHAPTER 5 | Write the handover
+Scene 13, Check the AI’s story. Read the draft, then check each claim against
+the systems that saw the activity. One source names a file. Another source
+counts data. Think about what it would take to prove the file was sent.
+Scene 14, Ask the right person. A ticket owner can confirm the scope of a
+permit. A receiving service might have a record of the object it received.
+Choose a focused enquiry for the right owner and time.
+Scene 15, Sign the morning report. Trace the same desk through connection,
+file read and transfer. Separate the confirmed details from open questions.
+Practice case, The draft that guessed. Use the R slips for the three checks.
+For your final harbour note, use this optional sentence starter:
+“The records show ____. We still need to learn ____. Ask ____ to check ____.”
 
-STATION 8 | SIGN THE MORNING HAND-OFF | about 12 minutes
-Open the relevant originals. Select the four citations requested. Build the
-confirmed observation, interpretation, unresolved question and next action.
-Write a short follow-up in your own words, naming what should be checked
-and why. The browser checks that the note is present and sufficiently long.
-Your instructor assesses its reasoning. Click Preview hand-off and read it
-aloud. After any edit to the report, preview it again before signing.
-Complete the final practice pair and click Sign the hand-off.
+FINISH
+After saving the last chapter entry, choose Finish my shift. Enter the name
+you want on the certificate. Download certificate (PNG) saves an image.
+Download shift report (TXT) saves your five notes, practice answers and
+decision explanations for your instructor. Keep those downloads for class.
+If you return later, View my completed shift opens these downloads again.
 
-DOWNLOADS
-Click View signed edition, enter the name for your certificate, and download
-the PNG. Download case report (TXT) saves the signed hand-off with your
-citations and written follow-up. If you revise the final station later,
-preview it and sign it again to update the saved report.
-
-WHEN SOMETHING FEELS TRICKY
-Start with the question above the evidence. Circle the specific field you
-need. Use the worked example, station hint and clipping hint. The correct
-relationship usually needs more than a nearby time or one shared address.
-Keep the browser and site address the same to resume progress.
+IF YOU ARE STUCK
+Check the unit, the time label and the slip number. In a chapter practice
+case, use its lettered slips for the short fields and the numbered night
+watch slips for your paragraph. If the permit checker asks for another
+trial, look at its two “Trials recorded” marks. Previous decision lets you
+reread a signed answer. Shift map and Resume my shift return you to the
+first unfinished step.
