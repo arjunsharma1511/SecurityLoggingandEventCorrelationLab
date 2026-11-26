@@ -1,84 +1,102 @@
-CASE RELAY | STUDENT WALKTHROUGH
-Security logging, event correlation and investigation
-====================================================
+THE MIDNIGHT EDITION
+Student field guide | North Quay Press
 
-Plan for 75–95 minutes, including the written hand-off. You can work at
-your own pace, use hints and retry any challenge.
+An overnight print job was late. Two transfers reached different destinations.
+Your job is to explain the delay, decide which transfer fits the approved job,
+and leave the morning analyst enough evidence to continue the inquiry.
 
-OPEN THE DESK
-1. Open index.html in a modern browser or follow your class lab link.
-2. Watch the source lanes send log records to the SIEM. Read the four
-   short definitions below the diagram.
-3. Click “Start the lab.” Use “Resume the lab” when you return later.
-4. Read the case brief and the current challenge. Write down the system,
-   user and time window when the brief supplies them.
-5. Open “Show a hint” for help with the fields to compare.
+Allow 75–95 minutes for the eight stations, practice clippings and final written
+briefing. The clock times are the times in the story. You can pause at any point.
 
-REPLAY AND EXPLORE
-1. Under “SIEM event explorer,” click “Replay arrivals.” When a record
-   reaches the SIEM, its source lights up and the replay shows its original
-   event time and its arrival time. Gaps are shortened for the replay.
-2. Click “Pause replay” to stop automatic advance. “Step arrival” moves
-   by one record. “Rewind” resets playback. The full table is available
-   at every replay position. Use “Pause motion” to turn off movement.
-3. Select a source, search a field value such as a host or account, or enter
-   UTC times. Click “Apply filters.” Filters are combined. Time bounds are
-   inclusive and apply to the event time for this case day.
-4. Use “Sort events” to compare event order with arrival order.
-   Use “Clear” to restore the full view.
-5. Click an event ID in the table. The inspector shows the source device,
-   both UTC times, the original log and a short explanation of the source.
-   On smaller screens, the inspector appears below the table.
-6. Read the original action, result, user, session and address values.
-   Firewall actions describe firewall decisions. Identity and server logs
-   report results for the services that generated them.
+GET STARTED
+1. Open index.html or the link your instructor gave you.
+2. Click Open shift file. On a later visit, Resume shift opens the first
+   unfinished station. Your work is saved on this browser when storage is available.
+3. Read At your desk. Open Worked example or Field guide for beginners when a
+   term is unfamiliar. Then read Your assignment.
+4. Click a record headline to unfold its original fields. The time above the
+   source text is when the collector received it. The source text shows the
+   original event time. Click the headline again to fold it.
+5. Search source archive opens the full case in a read-only drawer. Choose a
+   generating source or enter text such as a user, IP or record ID. Open a
+   matching slip to read it. Close archive to return to your assignment.
+6. Each station has a main assignment and two small practice clippings.
+   The clippings are independent examples. Answer each short question from
+   the evidence printed directly above it.
+7. Click Check station. If you need to revise an answer, read the feedback,
+   open the appropriate hint, change the answer and check again. Retries are free.
+8. After a pass, click Next station. The Shift file index lets you revisit signed
+   stations. Pause motion switches off decorative movement and shortens replay.
 
-BUILD YOUR EVIDENCE TIMELINE
-1. In Event details, click “Pin event.”
-2. Pin each record asked for in the challenge. Check the ID on the card.
-3. In an ordered challenge, use “Earlier” and “Later” to arrange cards by
-   UTC event time. “Remove” drops one pin. “Clear pins” clears the board.
-4. Read “Field matches across your pins.” The board compares common account,
-   address, device, session and request fields. Treat matches as leads to
-   verify. For example, a public IP may be shared by unrelated devices.
-5. Click “Prepare original snapshot” when the challenge asks for it.
-   “Download JSON” saves a copy of all originals in the current case with
-   their source and timestamps. Your working filters and order do not
-   change those originals.
+STATION 1 | TAKE THE CALL | about 8 minutes
+Open HELP to read the operator’s complaint. Open ALERT to find the SIEM’s
+grouping field. Compare QUEUE with HELP. Choose the security scope, review
+window and evidence handling method. Click Seal original records. Download
+sealed JSON if you want a local copy. Answer the two practice clippings.
+Discuss why Press Operations and the incident analyst need different records.
 
-CHECK YOUR FINDING
-1. Below the timeline, answer each question under “Check your finding.”
-2. Click “Check my work.” Use the feedback to adjust the pins, order or
-   responses. If the right records are selected in the wrong order, move
-   the cards using their UTC event times.
-3. In the AI audit, choose Supported for claims directly backed by the
-   source, Contradicted for claims in conflict with it, or Not established
-   when the evidence cannot decide. These are supplied training drafts.
-4. Click “Next challenge” after a pass. The next challenge starts with a
-   clean working board. The top bar and case cards track completions.
+STATION 2 | ROUTE THE RECORDS | about 10 minutes
+Open each record in turn. Find the field that names the action or result.
+Under that slip, choose the question this source can answer. Read the tray
+label to see where you filed it. Complete all five routes. In the clippings,
+read the summary count and identify the upstream host. Explain why the
+number of SIEM rows can differ from the number of observed failures.
 
-WHAT TO PRACTISE
-- One red event. Explain what the firewall, identity service and scheduling
-  server each know. Plan one follow-up for the real app error.
-- A clock out of order. Write down the gateway’s raw time, its UTC time
-  and the arrival order. Explain why UTC event time tells a different story.
-- The shared address. Compare the users and devices behind one public IP.
-  Then identify the stronger relationship in the later identity events.
-- The after-hours session. Trace the assigned tunnel address into the
-  server and proxy logs. Explain what the byte count and folder operation show.
-- Audit the AI draft. Cite the original field for each verdict. Use only
-  approved tools and permitted inputs when working with real evidence.
-- Final analyst shift. Keep the scheduled backup separate from the other
-  transfer. Write a hand-off with confirmed facts, a cautious interpretation,
-  unresolved questions, and an owner for follow-up.
+STATION 3 | REPAIR THE CLOCK | about 12 minutes
+Open CLOCK and VPN. Choose the offset to subtract from the gateway’s local
+clock. Read the conversion preview. Click Play arrival reel and let it finish.
+Look at the SIEM arrival order. Now click the event strips in the order the
+activity actually happened. Your cut appears in the dark strip area. Use Undo
+last strip or Clear reel to correct it. For the practice clippings, check the
+calendar day as well as the hour. Compare two UTC timestamps to measure delay.
 
-HAND-OFF AND CERTIFICATE
-1. After completing the last challenge in Final analyst shift, click
-   “Go to hand-off.” Write your own brief and download it for discussion.
-2. Include the time window, account, session or address and relevant event IDs.
-   State what the next analyst should obtain to answer the open questions.
-3. Once the header shows “24 / 24 complete,” go to the certificate section,
-   enter your name and click “Download PNG.”
-4. Use the same browser and lab address when returning. Completed challenges
-   are saved in browser storage. Pins and notes are working material. Save
-   your downloaded evidence and hand-off before closing the page.
+STATION 4 | TRACE THE SESSION | about 10 minutes
+Read AUTH, GUEST and VPN. Look for repeated and conflicting values. Follow the
+VPN’s assigned address into FILE and a proxy record. Choose a link on each
+row. Read the comparison underneath, then open the original to verify it.
+Decide how much weight to put on the automatic alert. Use the practice records
+to distinguish a shared public address from an internal address reused later.
+
+STATION 5 | TEST THE APPROVAL | about 12 minutes
+Open JOB. Read its source, destination and UTC window. Switch on ONE condition
+and click Run ticket model. Look at the five rows. The first two are observed
+flows. The three test inputs show what your rule would do in other situations.
+Add conditions and rerun. The results return to Awaiting run whenever you
+change a switch. Compare all rows against the ticket, choose the actual flow
+needing review, and solve the practice clippings. Be ready to explain one
+mistake that a broad rule would have made.
+
+STATION 6 | REDLINE THE AI DRAFT | about 10 minutes
+Read one draft line. Open the relevant source slip above the editor. Choose
+replacement wording and cite the record containing the verifying field.
+The original line is crossed out and your edit appears immediately. Do this
+for all three lines. In the clippings, check transfer direction, units and the
+exact operation. If a draft sounds certain, find the field that supports it.
+
+STATION 7 | REQUEST A FOLLOW-UP | about 8 minutes
+Read what each correspondent could check. Click Send simulated enquiry on
+the relevant cards. All replies are local fictional training material.
+Read the replies before choosing what was learned and what is still unknown.
+Complete both clippings. Explain which enquiry helps operations continue
+while the analyst investigates the unresolved transfer.
+
+STATION 8 | SIGN THE MORNING HAND-OFF | about 12 minutes
+Open the relevant originals. Select the four citations requested. Build the
+confirmed observation, interpretation, unresolved question and next action.
+Write a short follow-up in your own words, naming what should be checked
+and why. The browser checks that the note is present and sufficiently long.
+Your instructor assesses its reasoning. Click Preview hand-off and read it
+aloud. After any edit to the report, preview it again before signing.
+Complete the final practice pair and click Sign the hand-off.
+
+DOWNLOADS
+Click View signed edition, enter the name for your certificate, and download
+the PNG. Download case report (TXT) saves the signed hand-off with your
+citations and written follow-up. If you revise the final station later,
+preview it and sign it again to update the saved report.
+
+WHEN SOMETHING FEELS TRICKY
+Start with the question above the evidence. Circle the specific field you
+need. Use the worked example, station hint and clipping hint. The correct
+relationship usually needs more than a nearby time or one shared address.
+Keep the browser and site address the same to resume progress.

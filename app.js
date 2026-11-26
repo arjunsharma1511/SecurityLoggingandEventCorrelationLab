@@ -1,497 +1,292 @@
 "use strict";
 
-const KEY = "case-relay-completion-v1";
-const DATE_LABEL = "18 November 2026";
-const TASK_KEYS = cases.flatMap((item, c) => item.tasks.map((_, t) => `${c}:${t}`));
-const TOTAL = TASK_KEYS.length;
 const $ = id => document.getElementById(id);
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-const snapshots = new Map();
-let pausedMotion = reducedMotion.matches;
-let completed = loadProgress();
-let caseIndex = 0;
-let taskIndex = 0;
-let filter = {};
-let selected = "";
-let pins = [];
-let arrivals = [];
-let replayIndex = -1;
-let replayTimer = null;
-let flight = null;
-
-const activeCase = () => cases[caseIndex];
-const activeTask = () => activeCase().tasks[taskIndex];
-const key = () => `${caseIndex}:${taskIndex}`;
-const findEvent = id => activeCase().events.find(event => event.id === id);
-const escape = value => String(value).replace(/[&<>"']/g, character => (
-  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]
-));
-
-function loadProgress() {
+const key = "north-quay-midnight-edition-v1";
+const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const record = id => records.find(item => item.id === id);
+function fresh() { return { passed:0, current:0, drafts:{}, report:"", paused:reduced.matches }; }
+function load() {
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY));
-    return new Set(Array.isArray(saved) ? saved.filter(value => TASK_KEYS.includes(value)) : []);
-  } catch {
-    return new Set();
+    const s = JSON.parse(localStorage.getItem(key));
+    if (s && Number.isInteger(s.passed) && s.passed >= 0 && s.passed <= stations.length &&
+        Number.isInteger(s.current) && s.current >= 0 && s.current < stations.length &&
+        s.current <= s.passed && s.drafts && typeof s.drafts === "object") return s;
+  } catch { /* Browser storage may be unavailable. */ }
+  return fresh();
+}
+const state = load();
+let sequenceVersion = 0;
+function save() {
+  try { localStorage.setItem(key, JSON.stringify(state)); }
+  catch { $("meter").title = "Storage unavailable. Progress is held in this tab."; }
+}
+function draft() { return state.drafts[state.current] ||= {}; }
+function put(name, value) { draft()[name] = value; save(); }
+function picks(name) { return draft()[name] || []; }
+function draw(label, field, choices) {
+  return '<label class="control"><span>'+esc(label)+'</span><select data-field="'+field+'"><option value="">Choose…</option>'+
+    choices.map((choice,i) => '<option value="'+i+'" '+(String(draft()[field])===String(i)?"selected":"")+'>'+esc(choice)+'</option>').join("")+'</select></label>';
+}
+function group(list, prefix) { return list.map(([label, choices], i) => draw(label,prefix+i,choices)).join(""); }
+function slip(id) {
+  const r = record(id);
+  return '<details class="slip" data-slip="'+r.id+'"><summary><code>'+r.id+'</code> '+esc(r.title)+'</summary><p>'+esc(r.source)+' · received '+r.received+' UTC</p><pre>'+esc(r.raw)+'</pre></details>';
+}
+function action(id,label,kind="light") { return '<button class="'+kind+'" data-action="'+id+'">'+esc(label)+'</button>'; }
+function mix(...ids) { return '<div class="slips">'+ids.map(slip).join("")+'</div>'; }
+function nav() {
+  $("meter").textContent = state.passed+" / 8 stations signed";
+  $("nav").innerHTML = stations.map((s,i) => '<button data-go="'+i+'" '+(i>state.passed?"disabled":"")+' '+(i===state.current?'aria-current="step"':"")+'><b>'+String(i+1).padStart(2,"0")+'</b><span>'+esc(s.name)+'</span><small>'+(i<state.passed?"Signed":i>state.passed?"Locked":"Open")+'</small></button>').join("");
+  $("start").textContent = state.passed === 8 ? "View signed edition" : state.passed || Object.keys(state.drafts[0]||{}).length ? "Resume shift" : "Open shift file";
+  $("reward").hidden = state.passed !== 8;
+}
+function setMotion() {
+  document.documentElement.classList.toggle("paused",!!state.paused);
+  $("motion").textContent = state.paused ? "Enable motion" : "Pause motion";
+  $("motion").setAttribute("aria-pressed",String(!!state.paused));
+}
+function dispatch() {
+  return mix("HELP","ALERT","QUEUE")+group(forms.dispatch,"d")+'<div class="toolbox">'+action("seal",draft().sealed?"Snapshot sealed":"Seal original records")+
+    (draft().sealed?action("originals","Download sealed JSON"):"")+'</div>';
+}
+function sorting() {
+  const choices = [2,0,4,1,3].map(i=>forms.routes[i][1]);
+  return '<div class="sorting">'+forms.routes.map(([id],i)=>'<div>'+slip(id)+draw("Route "+id+" to its question","route"+i,choices)+
+    (choices[draft()["route"+i]]?'<p class="tray">Filed for review · '+esc(choices[draft()["route"+i]])+'</p>':"")+'</div>').join("")+'</div>';
+}
+const sequence = ["AUTH","VPN","FILE","RELAY"];
+const arrivalOrder = [...sequence].sort((a,b)=>record(a).received.localeCompare(record(b).received));
+function shownTime(id) {
+  if (id === "VPN") {
+    if (draft().offset == null || draft().offset === "") return "Convert gateway clock";
+    const minutes = 335 - [0,300,330,360][Number(draft().offset)];
+    return new Date(Date.UTC(2026,10,18,0,minutes)).toISOString().slice(11,19)+" UTC";
   }
+  return {AUTH:"00:02:10 UTC",FILE:"00:06:30 UTC",RELAY:"00:09:40 UTC"}[id];
 }
-
-function saveProgress() {
-  try {
-    localStorage.setItem(KEY, JSON.stringify([...completed]));
-  } catch {
-    $("progress-label").title = "Browser storage is unavailable. Keep this tab open to retain progress.";
-  }
+function clock() {
+  return mix("CLOCK","VPN")+draw("Offset to subtract from gateway time 05:35","offset",["0 hours","5 hours","5 hours 30 minutes","6 hours"])+
+    '<p class="readout" id="utc">Converted gateway time · '+shownTime("VPN")+'</p>'+
+    '<div class="reel" aria-label="Arrival order">'+arrivalOrder.map(id=>'<span data-arrival="'+id+'"><b>'+id+'</b><small>'+record(id).received+'</small></span>').join("")+'</div>'+
+    action("replay","Play arrival reel")+'<p id="replay-caption" class="fine" aria-live="polite">Collector arrival times in UTC. Playback compresses the wait.</p>'+
+    '<h3>Assemble the event-time reel</h3><p>Click the earliest source event first. Each click adds a strip to your cut.</p><div class="toolbox">'+
+    ["RELAY","FILE","AUTH","VPN"].map(id=>'<button data-strip="'+id+'" '+(picks("order").includes(id)?"disabled":"")+'>'+id+' · '+shownTime(id)+'</button>').join("")+'</div>'+
+    '<ol class="cut">'+picks("order").map(id=>'<li><strong>'+id+'</strong><small>'+shownTime(id)+'</small></li>').join("")+'</ol>'+action("undo","Undo last strip")+action("clear-reel","Clear reel");
 }
-
-function updateProgress() {
-  const allDone = completed.size === TOTAL;
-  $("progress").value = completed.size;
-  $("progress-label").textContent = `${completed.size} / ${TOTAL} complete`;
-  $("resume").textContent = allDone ? "View certificate" : completed.size ? "Resume the lab" : "Start the lab";
-  $("completion-badge").hidden = !completed.has(key());
-  $("next").disabled = !completed.has(key());
-  $("next").textContent = key() === TASK_KEYS.at(-1) ? "Go to hand-off" : "Next challenge";
-  $("cert-form").hidden = !allDone;
-  $("cert-status").textContent = allDone
-    ? "All 24 challenges complete. Your certificate is ready."
-    : "Complete all 24 challenges to unlock your certificate.";
-  $("handoff").hidden = caseIndex !== cases.length - 1 || !completed.has(TASK_KEYS.at(-1));
+function threadBoard() {
+  const comparisons=[
+    ["IP matches, but AUTH names Mina and GUEST names Eli.","Account and public IP match between AUTH and VPN.","PRESS identifies the spooler; it supplies no matching account."],
+    ["M-42 identifies the VPN session. FILE records an address instead.","This is the public side of the tunnel. FILE observed the internal side.","VPN assigned 10.4.9.27. FILE observed client 10.4.9.27."],
+    ["FILE and RELAY record the same client within three minutes and ten seconds.","The spooler has a different internal address."],
+    ["Two different accounts appear among the candidate originals.","The IP grouping includes two accounts. The device and assigned address help distinguish them."]
+  ];
+  return mix("AUTH","GUEST","VPN","FILE","RELAY","ALERT")+'<div class="threads">'+forms.links.map(([id,prompt,choices],i)=>
+    '<div class="thread"><strong>'+id+'</strong><i aria-hidden="true"></i>'+draw(prompt,"link"+i,choices)+
+    (comparisons[i][draft()["link"+i]]?'<p class="comparison">'+comparisons[i][draft()["link"+i]]+'</p>':"")+'</div>').join("")+'</div>';
 }
-
-function renderNavigation() {
-  $("cases").innerHTML = cases.map((item, c) => {
-    const count = item.tasks.filter((_, t) => completed.has(`${c}:${t}`)).length;
-    return `<button type="button" data-case="${c}" ${c === caseIndex ? 'aria-current="step"' : ""}><strong>${item.title}</strong><span>${item.topic}</span><small>${count} / ${item.tasks.length} complete</small></button>`;
-  }).join("");
-  $("tasks").innerHTML = activeCase().tasks.map((task, t) =>
-    `<button type="button" data-task="${t}" ${t === taskIndex ? 'aria-current="step"' : ""} aria-label="Challenge ${t + 1}, ${task.title}${completed.has(`${caseIndex}:${t}`) ? ", completed" : ""}">Challenge ${t + 1}${completed.has(`${caseIndex}:${t}`) ? " ✓" : ""}</button>`
-  ).join("");
+const rules = ["Match approved source","Match approved destination","Inside approved UTC window"];
+function model() {
+  const flags = picks("rules");
+  const evaluated = draft().tested === flags.join("|");
+  return mix("JOB","PRESS","RELAY")+'<fieldset><legend>Ticket conditions to enforce together</legend>'+rules.map((label,i)=>
+    '<label class="check"><input type="checkbox" data-rule="'+i+'" '+(flags.includes(i)?"checked":"")+'>'+label+'</label>').join("")+'</fieldset>'+
+    action("test","Run ticket model","ink")+'<div class="test-sheet"><table><caption>Two observed transfers and three fictional test inputs</caption><thead><tr><th>Flow</th><th>Sender</th><th>Destination</th><th>UTC</th><th>Model result</th></tr></thead><tbody>'+
+    flows.map(([id,ip,dest,time],i)=>{
+      const checks = [ip==="10.4.8.12",dest==="press.example",time>="00:05:00" && time<="00:15:00"];
+      const passes = flags.every(n=>checks[n]);
+      return '<tr><th>'+id+'</th><td>'+ip+'</td><td>'+dest+'</td><td>'+time+'</td><td class="'+(evaluated?(passes?"allowed":"reviewed"):"")+'" style="--n:'+i+'">'+(evaluated?(passes?"Fits model":"Review"):"Awaiting run")+'</td></tr>';
+    }).join("")+'</tbody></table></div>'+draw("Which observed flow needs review under PR-88?","transfer",["PRESS","RELAY","Both fit PR-88"]);
 }
-
-function stopReplay() {
-  clearTimeout(replayTimer);
-  replayTimer = null;
-  $("play").textContent = "Replay arrivals";
+const citations = ["JOB","VPN","FILE","GAP","PRESS","RELAY"];
+function editor() {
+  return mix(...citations)+'<div class="galleys">'+forms.edits.map((e,i)=>{
+    const current = e.choices[draft()["edit"+i]];
+    return '<section><p class="kicker">Draft line '+(i+1)+'</p><p class="draft-line '+(current?"struck":"")+'">'+e.claim+'</p>'+
+      (current?'<p class="insert">'+esc(current)+'</p>':"")+draw("Replacement wording","edit"+i,e.choices)+draw("Cite the verifying record","cite"+i,citations)+'</section>';
+  }).join("")+'</div>';
 }
-
-function cancelFlight() {
-  flight?.cancel();
-  flight = null;
+function enquiries() {
+  return '<div class="mail">'+forms.enquiries.map(([owner,ask,reply],i)=>'<article><h3>'+owner+'</h3><p>'+ask+'</p>'+
+    (picks("opened").includes(i)?'<blockquote><b>Reply received</b><br>'+esc(reply)+'</blockquote>':'<button data-letter="'+i+'">Send simulated enquiry</button>')+'</article>').join("")+'</div>'+
+    draw("What did the approval enquiry establish?","owner",["PR-88 covers both transfers.","The register covers the spooler delivery only.","The ticket covers Mina’s laptop if the size is smaller."])+
+    draw("Which uncertainty remains after the endpoint reply?","gap",["Whether any connection was recorded","Which account the VPN logged","The sending process and transferred content"]);
 }
-
-function updateMotion() {
-  document.documentElement.classList.toggle("motion-paused", pausedMotion);
-  $("motion").textContent = pausedMotion ? "Enable motion" : "Pause motion";
-  $("motion").setAttribute("aria-pressed", String(pausedMotion));
-  if (pausedMotion) cancelFlight();
+const reportIds = ["HELP","EDGE","VPN","FILE","PRESS","GAP","RELAY"];
+function finalDesk() {
+  return '<p>Use the source archive or unfold the records here. Cite the four originals that establish Mina’s VPN session, file operation, external transfer and endpoint visibility gap.</p>'+mix(...reportIds)+
+    '<fieldset><legend>Citations for the incident lead</legend>'+reportIds.map(id=>'<label class="check inline"><input type="checkbox" data-ref="'+id+'" '+(picks("refs").includes(id)?"checked":"")+'>'+id+'</label>').join("")+'</fieldset>'+
+    group(forms.handoff,"final")+'<label class="control"><span>In your own words, what should the next analyst check and why? Write at least eight words.</span><textarea id="note" maxlength="1800" rows="3">'+esc(draft().note)+'</textarea></label>'+
+    action("proof","Preview hand-off")+'<pre id="proof" '+(draft().proof?"":"hidden")+'>'+esc(reportText())+'</pre>';
 }
-
-function rewind() {
-  stopReplay();
-  cancelFlight();
-  replayIndex = -1;
-  $("replay-state").textContent = "Ready";
-  $("replay-message").textContent = "Replay shows SIEM arrival order with gaps shortened for the lab.";
-  $("replay-progress").max = arrivals.length;
-  $("replay-progress").value = 0;
-  $("source-strip").querySelectorAll("[data-source]").forEach(node => node.classList.remove("relaying"));
-  updateSelectedRows();
+function reportText() {
+  return ["NORTH QUAY PRESS | MORNING HAND-OFF","18 November 2026 | 00:00–00:15 UTC",
+    "Scope: Mina, DESIGN-07, VPN M-42 and 10.4.9.27.","Cited sources: "+picks("refs").join(", "),
+    ...forms.handoff.map(([label,choices],i)=>label+": "+(choices[draft()["final"+i]]||"[choose wording]")),
+    "Analyst follow-up: "+(draft().note||"[add your note]")].join("\n\n");
 }
-
-function openCase(c, t, focus = true) {
-  caseIndex = c;
-  taskIndex = t;
-  const item = activeCase();
-  const task = activeTask();
-  filter = {};
-  pins = [];
-  selected = "";
-  arrivals = [...item.events].sort((a, b) => a.arrival.localeCompare(b.arrival));
-  const names = [...new Set(item.events.map(event => event.source))];
-  $("filter-source").innerHTML = '<option value="">All sources</option>' + names.map(name => `<option>${name}</option>`).join("");
-  $("filters").reset();
-  $("source-strip").innerHTML = names.map(name => `<span data-source="${name}" style="--signal:${sources[name].colour}">${name}</span>`).join("");
-  $("case-brief").innerHTML = `<div><h3>${item.title}</h3><span>Fictional evidence · ${DATE_LABEL}</span></div><p>${item.brief}</p>`;
-  $("mission").innerHTML = `<div class="section-title"><h3 id="mission-title" tabindex="-1">${task.title}</h3><span id="completion-badge" hidden>Complete</span></div>
-    <p>${task.scope}</p>${task.ordered ? '<p class="mode-badge">Timeline order matters</p>' : ""}
-    ${task.audit ? '<p class="mode-badge">Simulated AI draft under review</p>' : ""}
-    <div class="mission-links"><details><summary>Show a hint</summary><p>${task.hint}</p></details><a href="#submission">Go to your finding</a></div>`;
-  $("prompts").innerHTML = task.questions.map((item, index) => `<fieldset><legend>${item.prompt}</legend>${item.choices.map((choice, n) =>
-    `<label><input type="radio" name="question-${index}" value="${n}"><span>${choice}</span></label>`).join("")}</fieldset>`).join("");
-  renderNavigation();
-  renderRows();
-  renderDetails();
-  renderPins();
-  updateSnapshotStatus();
-  rewind();
-  feedback("", "");
-  updateProgress();
-  if (focus) $("mission-title").focus();
+const tools = [dispatch,sorting,clock,threadBoard,model,editor,enquiries,finalDesk];
+function render(focus=false) {
+  sequenceVersion++;
+  const i=state.current,s=stations[i];
+  $("station").innerHTML='<header class="station-head"><p class="kicker">'+s.tool+' / '+String(i+1).padStart(2,"0")+' of 08</p><h2>'+s.name+'</h2><p>'+s.goal+'</p></header>'+
+    '<section class="lesson"><h3>At your desk</h3><p>'+s.lesson+'</p><details><summary>Worked example</summary><p>'+s.example+'</p></details><details><summary>Field guide for beginners</summary><p>An emitter is the system that created the record. A client is the device using a service. A VPN assigns a temporary internal address to a connected device. MFA means multi-factor authentication. Z means UTC. In these proxy records, bytes_sent counts data leaving the client. A mebibyte (MiB) is 1,048,576 bytes. EDR is the endpoint sensor that reports activity on a device.</p></details></section>'+
+    '<section class="assignment"><h3>Your assignment</h3><p>'+s.action+'</p></section><div id="instrument">'+tools[i]()+'</div>'+
+    '<section class="practice" id="practice"><h3>Two practice clippings</h3><p>Try the same skill on these separate examples. Keep their evidence out of the overnight case report.</p>'+
+    clippings[i].map(([title,raw,prompt,,hint],n)=>'<article><h4>'+esc(title)+'</h4><pre>'+esc(raw)+'</pre><label class="control"><span>'+esc(prompt)+'</span><input data-clipping="'+n+'" value="'+esc(draft()["clip"+n])+'" maxlength="80" autocomplete="off"></label><details><summary>Clipping hint</summary><p>'+esc(hint)+'</p></details></article>').join("")+'</section>'+
+    '<div class="submit"><details><summary>Need a hint?</summary><p>'+s.hint+'</p></details><p id="feedback" role="status"></p>'+
+    action("grade",i===7?"Sign the hand-off":"Check station","ink")+' <button id="next" '+(i>=state.passed?"disabled":"")+'>'+ (i===7?"View signed edition":"Next station")+'</button></div>';
+  nav();
+  if (focus) $("station").focus();
 }
-
-function presentEvents() {
-  const sortKey = $("sort").value === "arrival" ? "arrival" : "utc";
-  return [...activeCase().events].sort((a, b) => a[sortKey].localeCompare(b[sortKey]) || a.id.localeCompare(b.id))
-    .filter(event => {
-      const text = [event.id, event.source, event.host, event.headline, event.raw].join(" ").toLowerCase();
-      return (!filter.source || event.source === filter.source) &&
-        (!filter.query || text.includes(filter.query)) &&
-        (!filter.from || event.utc >= filter.from) && (!filter.to || event.utc <= filter.to);
-    });
+function refreshTool() {
+  sequenceVersion++;
+  const openSlips=[...$("instrument").querySelectorAll("details[open][data-slip]")].map(el=>el.dataset.slip);
+  const old=document.activeElement;
+  const selector=old?.dataset.field?'[data-field="'+old.dataset.field+'"]':old?.dataset.rule?'[data-rule="'+old.dataset.rule+'"]':null;
+  $("instrument").innerHTML=tools[state.current]();
+  for(const id of openSlips){const slip=$("instrument").querySelector('[data-slip="'+id+'"]');if(slip)slip.open=true;}
+  if(selector) $("instrument").querySelector(selector)?.focus({preventScroll:true});
 }
-
-function renderRows() {
-  const events = presentEvents();
-  $("rows").innerHTML = events.map(event => `<tr data-row="${event.id}">
-    <td><button type="button" data-inspect="${event.id}" aria-label="Inspect event ${event.id}">${event.id}</button></td>
-    <td>${event.utc}</td><td>${event.arrival}</td><td><span class="source-tag" style="--signal:${sources[event.source].colour}">${event.source}</span></td>
-    <td>${event.headline}</td></tr>`).join("") || '<tr><td colspan="5">No matching events. Adjust or clear the filters.</td></tr>';
-  $("match-count").textContent = `${events.length} of ${activeCase().events.length} shown. Replay covers the full log set.`;
-  updateSelectedRows();
+function goto(i) { state.current=i;save();render(true); }
+function fail(message) { $("feedback").className="retry";$("feedback").textContent=message; }
+function checkGroup(items,prefix) {
+  const bad=items.findIndex((item,i)=>String(draft()[prefix+i])!==String(item[2]));
+  return bad<0?"":"Review “"+items[bad][0]+"”. Use the source slip or worked example above.";
 }
-
-function updateSelectedRows() {
-  const replayed = arrivals[replayIndex]?.id;
-  $("rows").querySelectorAll("[data-row]").forEach(row => {
-    const id = row.dataset.row;
-    row.classList.toggle("selected", id === selected);
-    row.classList.toggle("arriving", id === replayed);
-    row.firstElementChild.firstElementChild.setAttribute("aria-pressed", String(id === selected));
-    row.classList.toggle("pinned", pins.includes(id));
-  });
-}
-
-function renderDetails() {
-  const event = findEvent(selected);
-  if (!event) {
-    $("record").innerHTML = '<h4 id="record-title">Event details</h4><p>Select an event ID to read the original record.</p>';
-    return;
-  }
-  $("record").innerHTML = `<div class="section-title"><h4 id="record-title" tabindex="-1">Event ${event.id}</h4><button class="quiet small" type="button" id="pin-event" aria-pressed="${pins.includes(event.id)}">${pins.includes(event.id) ? "Unpin event" : "Pin event"}</button></div>
-    <p class="source-tag" style="--signal:${sources[event.source].colour}">${event.source} · ${event.host}</p>
-    <dl class="event-times"><div><dt>Event UTC</dt><dd>${event.utc}</dd></div><div><dt>Arrived UTC</dt><dd>${event.arrival}</dd></div></dl>
-    <h5>Original source record</h5><pre tabindex="0">${escape(event.raw)}</pre><p class="field-note">${sources[event.source].meaning}</p>`;
-}
-
-function inspect(id, focus = false) {
-  selected = id;
-  updateSelectedRows();
-  renderDetails();
-  if (focus) $("record-title").focus();
-}
-
-function drawFlight(source) {
-  cancelFlight();
-  const receiver = $("replay-state");
-  const origin = $("source-strip").querySelector(`[data-source="${source}"]`);
-  $("source-strip").querySelectorAll("[data-source]").forEach(node => node.classList.toggle("relaying", node === origin));
-  if (pausedMotion || !origin.animate) return;
-  const wrapper = $("ingest");
-  const map = wrapper.getBoundingClientRect();
-  const start = origin.getBoundingClientRect();
-  const end = receiver.getBoundingClientRect();
-  const dot = document.createElement("span");
-  dot.className = "ingest-dot";
-  dot.style.setProperty("--signal", sources[source].colour);
-  dot.setAttribute("aria-hidden", "true");
-  wrapper.append(dot);
-  flight = dot.animate([
-    { transform: `translate(${start.left - map.left + start.width / 2}px,${start.bottom - map.top}px)`, opacity: 0 },
-    { opacity: 1, offset: .14 },
-    { transform: `translate(${end.left - map.left + end.width / 2}px,${end.top - map.top}px)`, opacity: 1 }
-  ], { duration: 500, easing: "ease-out" });
-  flight.addEventListener("finish", () => dot.remove());
-  flight.addEventListener("cancel", () => dot.remove());
-}
-
-function stepReplay() {
-  if (replayIndex + 1 >= arrivals.length) return false;
-  replayIndex += 1;
-  const event = arrivals[replayIndex];
-  $("replay-state").textContent = `${event.id} · ${event.source}`;
-  $("replay-message").textContent = `Arrived ${event.arrival} UTC · event time ${event.utc} UTC · ${event.headline}`;
-  $("replay-progress").value = replayIndex + 1;
-  drawFlight(event.source);
-  updateSelectedRows();
-  return true;
-}
-
-function replayTick() {
-  if (!stepReplay() || replayIndex === arrivals.length - 1) {
-    stopReplay();
-    return;
-  }
-  replayTimer = setTimeout(replayTick, 870);
-}
-
-function renderPins(changed = "") {
-  $("pins").innerHTML = pins.map((id, position) => {
-    const event = findEvent(id);
-    return `<li style="--signal:${sources[event.source].colour}" ${id === changed ? 'class="changed"' : ""}>
-      <div><span class="pin-meta">${event.utc} UTC · ${event.source}</span><strong>${event.headline}</strong><small>${event.host}</small></div>
-      <div class="pin-controls"><button class="quiet small" type="button" data-pin-action="inspect" data-id="${id}" aria-label="Inspect pinned event ${id}">${id}</button>
-        <button class="quiet small" type="button" data-pin-action="earlier" data-id="${id}" ${position === 0 ? "disabled" : ""} aria-label="Move ${id} earlier">Earlier</button>
-        <button class="quiet small" type="button" data-pin-action="later" data-id="${id}" ${position === pins.length - 1 ? "disabled" : ""} aria-label="Move ${id} later">Later</button>
-        <button class="quiet small" type="button" data-pin-action="remove" data-id="${id}" aria-label="Remove ${id}">Remove</button></div></li>`;
-  }).join("") || '<li class="empty">Select an event and choose Pin event to begin.</li>';
-  $("empty-board").disabled = pins.length === 0;
-  renderJoins();
-  updateSelectedRows();
-}
-
-function renderJoins() {
-  const board = $("joins");
-  board.hidden = pins.length < 2;
-  if (board.hidden) return;
-  const comparableFields = {
-    Account: ["user"], Address: ["src_ip", "assigned_ip", "client_ip", "public_ip"],
-    Device: ["device"], Session: ["session"], Request: ["request_id"]
-  };
-  const matches = [];
-  for (const [type, fields] of Object.entries(comparableFields)) {
-    const values = new Map();
-    for (const id of pins) {
-      const event = findEvent(id);
-      for (const field of fields) {
-        const value = event.fields[field];
-        if (value === undefined) continue;
-        if (!values.has(value)) values.set(value, new Set());
-        values.get(value).add(id);
-      }
+function validate() {
+  const d=draft();
+  switch(state.current) {
+    case 0: return checkGroup(forms.dispatch,"d") || (!d.sealed?"Seal the original records before moving on.":"");
+    case 1: {
+      const bad=[1,3,0,4,2].findIndex((v,i)=>String(d["route"+i])!==String(v));
+      return bad<0?"":"Reopen "+forms.routes[bad][0]+". Read its action or result and choose the question that field directly answers.";
     }
-    for (const [value, ids] of values) {
-      if (ids.size > 1) matches.push({ type, value, ids: [...ids] });
+    case 2:
+      if(d.offset!=="2") return "The source offset is +05:30. Subtract the full offset, including minutes.";
+      if(!d.replayed) return "Play the arrival reel once and compare its first record with the earliest source event.";
+      return picks("order").join()===sequence.join()?"":"Compare the event times printed on your strips. Undo or clear your reel to fix the order.";
+    case 3: {
+      const bad=forms.links.findIndex((row,i)=>String(d["link"+i])!==String(row[3]));
+      return bad<0?"":"Recheck the "+forms.links[bad][0]+" link. "+forms.links[bad][4];
     }
+    case 4:
+      if(!d.triedBroad) return "Run a trial with fewer than three conditions. Find an extra flow that passes.";
+      if(picks("rules").length!==3 || d.tested!==picks("rules").join("|")) return "Compare all five outcomes with JOB. Run the model with every ticket condition enforced.";
+      return d.transfer==="1"?"":"Which actual sender and destination fall outside the ticket?";
+    case 5: {
+      const bad=forms.edits.findIndex((e,i)=>String(d["edit"+i])!==String(e.answer)||citations[d["cite"+i]]!==e.source);
+      return bad<0?"":"Check the wording and citation for draft line "+(bad+1)+". Match the specific field to the edited statement.";
+    }
+    case 6:
+      if(![0,1].every(i=>picks("opened").includes(i))) return "Read both the change owner’s and the endpoint custodian’s replies.";
+      return d.owner==="1" && d.gap==="2"?"":"The change register covers one route. The custodian describes a limit on process and content evidence.";
+    case 7:
+      if(picks("refs").slice().sort().join()!==["FILE","GAP","RELAY","VPN"].join()) return "Cite one original each for the session, file read, laptop transfer and coverage gap.";
+      return checkGroup(forms.handoff,"final") || ((d.note||"").trim().split(/\s+/).length<8?"Write a follow-up of at least eight words. Your instructor reviews its reasoning.":"") || (!d.proof?"Preview your completed hand-off before signing.":"");
   }
-  board.innerHTML = `<h4>Field matches across your pins</h4><p class="meta">Matching values suggest a link to verify against the original records.</p>
-    ${matches.length ? `<ul>${matches.map(({ type, value, ids }) => `<li><b>${type}</b><code>${escape(value)}</code><span>${ids.join(" · ")}</span></li>`).join("")}</ul>`
-      : '<p class="meta">No exact match on the compared account, address, device, session or request fields.</p>'}`;
 }
-
-function updateSnapshotStatus() {
-  const ready = snapshots.has(caseIndex);
-  $("download-original").disabled = !ready;
-  $("preserve").textContent = ready ? "Snapshot prepared" : "Prepare original snapshot";
-  $("preserve").disabled = ready;
-  $("snapshot-state").textContent = ready
-    ? `${activeCase().events.length} original records prepared. Filter and pin changes stay in your working view.`
-    : "Prepare a copy of the full supplied log set, including source and arrival time.";
+const debriefs=[
+  "Scope recorded and originals sealed. Press Operations can examine the queue delay while you review the security lead.",
+  "You routed five observations to the questions their source systems can answer.",
+  "The identity failures came first. Buffering made AUTH arrive after the outbound flow.",
+  "Mina’s account and assigned address connect the records. The shared public IP also includes Eli.",
+  "Your tested rule admits only PRESS. RELAY is smaller, but its client and destination fall outside PR-88.",
+  "The corrected briefing reflects the original direction, VPN result and coverage gap.",
+  "You have a scoped approval check and a documented evidence gap for the incoming analyst.",
+  "Hand-off signed. Your instructor can review the written follow-up in your exported report."
+];
+function grade() {
+  const message=validate();
+  if(message) return fail(message);
+  const normalise=value=>String(value??"").trim().toLowerCase().replace(/\s+/g," ");
+  const bad=clippings[state.current].findIndex((clip,i)=>!clip[3].some(answer=>normalise(answer)===normalise(draft()["clip"+i])));
+  if(bad>=0){fail("Your main assignment checks out. Revisit the practice clipping “"+clippings[state.current][bad][0]+"” and use its hint if needed.");document.querySelector('[data-clipping="'+bad+'"]').focus();return;}
+  if(state.current===7) state.report=reportText();
+  state.passed=Math.max(state.passed,state.current+1);
+  save();nav();
+  $("feedback").className="success";$("feedback").textContent=debriefs[state.current];
+  $("next").disabled=false;
 }
-
-function download(href, filename) {
-  const link = document.createElement("a");
-  link.href = href;
-  link.download = filename;
-  link.click();
+async function replay(button) {
+  const version=++sequenceVersion;
+  button.disabled=true;
+  for(const id of arrivalOrder) {
+    if(version!==sequenceVersion) return;
+    document.querySelectorAll("[data-arrival]").forEach(el=>el.classList.toggle("active",el.dataset.arrival===id));
+    $("replay-caption").textContent=id+" arrived at "+record(id).received+" UTC. Compare its source time on the strip below.";
+    if(!state.paused) await new Promise(resolve=>setTimeout(resolve,560));
+  }
+  if(version===sequenceVersion) {
+    put("replayed",true);button.disabled=false;
+    $("replay-caption").textContent="Arrival order: "+arrivalOrder.join(" · ")+". AUTH arrived last after buffering.";
+  }
 }
-
-function downloadText(value, type, filename) {
-  const url = URL.createObjectURL(new Blob([value], { type }));
-  download(url, filename);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+function download(value,type,filename) {
+  const a=document.createElement("a");
+  const url=URL.createObjectURL(new Blob([value],{type}));a.href=url;a.download=filename;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1200);
 }
-
-function feedback(message, tone) {
-  $("feedback").textContent = message;
-  $("feedback").dataset.tone = tone;
+function originalCopy() {return JSON.stringify({edition:"North Quay Press",date:"2026-11-18",receiptTimezone:"UTC",records},null,2);}
+function toggle(field,value,on) { const values=new Set(picks(field));if(on) values.add(value);else values.delete(value);put(field,[...values]); }
+function updateProof() { if(state.current===7){put("proof",false);$("proof").hidden=true;} }
+$("station").addEventListener("change",e=>{
+  const n=e.target;
+  if(n.dataset.field) {put(n.dataset.field,n.value);updateProof();if([1,2,3,5].includes(state.current))refreshTool();}
+  if(n.dataset.rule!==undefined){toggle("rules",Number(n.dataset.rule),n.checked);put("tested",null);refreshTool();}
+  if(n.dataset.ref){toggle("refs",n.dataset.ref,n.checked);updateProof();}
+  $("feedback").textContent="";
+});
+$("station").addEventListener("input",e=>{
+  if(e.target.id==="note"){put("note",e.target.value);updateProof();}
+  if(e.target.dataset.clipping!==undefined)put("clip"+e.target.dataset.clipping,e.target.value);
+});
+$("station").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.id==="next"){if(state.current===7) $("name").focus();else goto(state.current+1);return;}
+  if(b.dataset.strip){put("order",[...picks("order"),b.dataset.strip]);refreshTool();return;}
+  if(b.dataset.letter!==undefined){toggle("opened",Number(b.dataset.letter),true);refreshTool();return;}
+  switch(b.dataset.action){
+    case "grade":grade();break;
+    case "seal":put("sealed",true);refreshTool();break;
+    case "originals":download(originalCopy(),"application/json","North-Quay-originals.json");break;
+    case "replay":replay(b);break;
+    case "undo":put("order",picks("order").slice(0,-1));refreshTool();break;
+    case "clear-reel":put("order",[]);refreshTool();break;
+    case "test":if(picks("rules").length<3)put("triedBroad",true);put("tested",picks("rules").join("|"));refreshTool();break;
+    case "proof":put("proof",true);$("proof").textContent=reportText();$("proof").hidden=false;break;
+  }
+});
+$("nav").addEventListener("click",e=>{const b=e.target.closest("[data-go]");if(b&&!b.disabled)goto(Number(b.dataset.go));});
+$("start").onclick=()=>state.passed===8?$("name").focus():goto(Math.min(state.passed,7));
+$("motion").onclick=()=>{state.paused=!state.paused;setMotion();save();};
+reduced.addEventListener("change",e=>{state.paused=e.matches;setMotion();save();});
+function searchArchive() {
+  const term=$("query").value.trim().toLowerCase();
+  const results=records.filter(r=>(!$("source").value||r.source===$("source").value)&&[r.id,r.source,r.title,r.raw,r.received].join(" ").toLowerCase().includes(term));
+  $("records").innerHTML=results.map(r=>slip(r.id)).join("");
+  $("result-count").textContent=results.length+" of "+records.length+" records match.";
 }
-
-function check() {
-  const task = activeTask();
-  if (task.preserve && !snapshots.has(caseIndex)) {
-    return feedback("Prepare the original snapshot in the evidence panel first.", "review");
-  }
-  if (pins.length !== task.ids.length) {
-    return feedback(`Pin exactly ${task.ids.length} event${task.ids.length === 1 ? "" : "s"}. Check the scope above the explorer.`, "review");
-  }
-  if (!task.ids.every(id => pins.includes(id))) {
-    return feedback(`Check which records belong in scope. ${task.hint}`, "review");
-  }
-  if (task.ordered && pins.some((id, position) => id !== task.ids[position])) {
-    return feedback("You have the right events. Use Earlier and Later to put them in UTC event-time order.", "review");
-  }
-  const choices = task.questions.map((_, index) => document.querySelector(`input[name="question-${index}"]:checked`));
-  if (choices.some(choice => !choice)) {
-    return feedback("Your evidence matches. Answer each question before checking.", "review");
-  }
-  const errors = task.questions.flatMap((question, index) => Number(choices[index].value) === question.answer ? [] : [index + 1]);
-  if (errors.length) {
-    return feedback(`Your evidence matches. Review ${errors.length === 1 ? "response" : "responses"} ${errors.join(", ")}. ${task.hint}`, "review");
-  }
-  completed.add(key());
-  saveProgress();
-  renderNavigation();
-  updateProgress();
-  feedback(task.questions.map(question => question.explanation).join(" "), "pass");
-}
-
-function openKey(next) {
-  openCase(...next.split(":").map(Number));
-}
-
-$("motion").addEventListener("click", () => { pausedMotion = !pausedMotion; updateMotion(); });
-reducedMotion.addEventListener("change", event => { pausedMotion = event.matches; updateMotion(); });
-$("play").addEventListener("click", () => {
-  if (replayTimer !== null) return stopReplay();
-  if (replayIndex === arrivals.length - 1) rewind();
-  $("play").textContent = "Pause replay";
-  replayTick();
-});
-$("step").addEventListener("click", () => {
-  stopReplay();
-  if (!stepReplay()) $("replay-message").textContent = "End of supplied record set. Rewind to replay.";
-});
-$("rewind").addEventListener("click", rewind);
-$("filters").addEventListener("submit", event => {
-  event.preventDefault();
-  const time = id => {
-    const value = $(id).value;
-    return value.length === 5 ? value + ":00" : value;
-  };
-  const from = time("filter-from");
-  const to = time("filter-to");
-  if (from && to && from > to) {
-    $("match-count").textContent = "From UTC must be earlier than or equal to To UTC. The current filters are still active.";
-    return;
-  }
-  filter = { source: $("filter-source").value, query: $("filter-query").value.trim().toLowerCase(), from, to };
-  renderRows();
-});
-$("clear").addEventListener("click", () => {
-  $("filters").reset();
-  filter = {};
-  renderRows();
-});
-$("sort").addEventListener("change", renderRows);
-$("rows").addEventListener("click", event => {
-  const button = event.target.closest("[data-inspect]");
-  if (button) inspect(button.dataset.inspect, matchMedia("(max-width: 50rem)").matches);
-});
-$("record").addEventListener("click", event => {
-  if (event.target.id !== "pin-event") return;
-  const adding = !pins.includes(selected);
-  pins = adding ? [...pins, selected] : pins.filter(id => id !== selected);
-  renderPins(adding ? selected : "");
-  event.target.setAttribute("aria-pressed", String(adding));
-  event.target.textContent = adding ? "Unpin event" : "Pin event";
-});
-$("pins").addEventListener("click", event => {
-  const button = event.target.closest("[data-pin-action]");
-  if (!button) return;
-  const { id, pinAction } = button.dataset;
-  if (pinAction === "inspect") return inspect(id, true);
-  if (pinAction === "remove") {
-    pins = pins.filter(pin => pin !== id);
-    if (selected === id) renderDetails();
-    renderPins();
-    if (pins.length) $("pins").querySelector("button").focus();
-    else $("board-title").setAttribute("tabindex", "-1");
-    if (!pins.length) $("board-title").focus();
-    return;
-  }
-  const from = pins.indexOf(id);
-  const to = from + (pinAction === "earlier" ? -1 : 1);
-  if (to < 0 || to >= pins.length) return;
-  [pins[from], pins[to]] = [pins[to], pins[from]];
-  renderPins(id);
-  const controls = [...$("pins").querySelectorAll(`[data-id="${id}"]`)];
-  (controls.find(control => control.dataset.pinAction === pinAction && !control.disabled) || controls[0]).focus({ preventScroll: true });
-});
-$("empty-board").addEventListener("click", () => {
-  pins = [];
-  renderPins();
-  renderDetails();
-});
-$("preserve").addEventListener("click", () => {
-  snapshots.set(caseIndex, JSON.stringify({
-    case: activeCase().title,
-    sourceDate: DATE,
-    records: activeCase().events.map(event => ({
-      id: event.id, source: event.source, emitter: event.host,
-      eventTimeOriginal: event.originalTime, eventTimeUtc: `${DATE}T${event.utc}Z`,
-      arrivalTimeUtc: `${DATE}T${event.arrival}Z`, raw: event.raw
-    }))
-  }, null, 2));
-  updateSnapshotStatus();
-  $("download-original").focus();
-});
-$("download-original").addEventListener("click", () => {
-  const snapshot = snapshots.get(caseIndex);
-  if (snapshot) downloadText(snapshot, "application/json", `case-relay-${caseIndex + 1}-originals.json`);
-});
-$("check").addEventListener("click", check);
-$("cases").addEventListener("click", event => {
-  const button = event.target.closest("[data-case]");
-  if (!button) return;
-  const c = Number(button.dataset.case);
-  const first = cases[c].tasks.findIndex((_, t) => !completed.has(`${c}:${t}`));
-  openCase(c, Math.max(first, 0));
-});
-$("tasks").addEventListener("click", event => {
-  const button = event.target.closest("[data-task]");
-  if (button) openCase(caseIndex, Number(button.dataset.task));
-});
-$("next").addEventListener("click", () => {
-  const next = TASK_KEYS[TASK_KEYS.indexOf(key()) + 1];
-  if (next) openKey(next);
-  else $("handoff-note").focus();
-});
-$("resume").addEventListener("click", () => {
-  const pending = TASK_KEYS.find(task => !completed.has(task));
-  if (pending) openKey(pending);
-  else {
-    $("certificate").scrollIntoView();
-    $("learner").focus({ preventScroll: true });
-  }
-});
-$("reset").addEventListener("click", () => {
-  if (!confirm("Clear the completed challenges and current working notes in this browser tab?")) return;
-  completed.clear();
-  saveProgress();
-  snapshots.clear();
-  $("handoff-note").value = "";
-  $("note-feedback").textContent = "";
-  openCase(0, 0);
-});
-$("download-note").addEventListener("click", () => {
-  const note = $("handoff-note").value.trim();
-  if (!note) {
-    $("note-feedback").textContent = "Write your hand-off before downloading it.";
-    $("handoff-note").focus();
-    return;
-  }
-  downloadText(`CASE RELAY | FINAL ANALYST SHIFT\n${DATE_LABEL} · 17:40–18:00 UTC\n\n${note}\n`, "text/plain", "case-relay-hand-off.txt");
-  $("note-feedback").textContent = "Hand-off download started.";
-});
-$("cert-form").addEventListener("submit", event => {
-  event.preventDefault();
-  const name = $("learner").value.trim();
-  if (!name || completed.size !== TOTAL) return;
-  const canvas = document.createElement("canvas");
-  canvas.width = 1500;
-  canvas.height = 940;
-  const context = canvas.getContext("2d");
-  context.fillStyle = "#1b1532";
-  context.fillRect(0, 0, 1500, 940);
-  context.strokeStyle = "#e5b3ff";
-  context.lineWidth = 4;
-  context.strokeRect(45, 45, 1410, 850);
-  context.textAlign = "center";
-  function line(text, y, font, colour) {
-    context.fillStyle = colour;
-    context.font = font;
-    context.fillText(text, 750, y, 1260);
-  }
-  line("CASE RELAY SOC TRAINING", 161, "bold 30px system-ui", "#e5b3ff");
-  line("Certificate of Completion", 280, "bold 72px system-ui", "#ffffff");
-  line("Awarded to", 361, "32px system-ui", "#cfcae3");
-  line(name, 467, "bold 89px system-ui", "#ffffff");
-  line("Security Logging & Event Correlation", 613, "bold 50px system-ui", "#edc8ff");
-  line("SIEM search · Timelines · Source verification · Investigation hand-off", 679, "27px system-ui", "#d9d4ed");
-  line(`${TOTAL} challenges completed · ${new Date().toLocaleDateString(undefined, { dateStyle: "long" })}`, 812, "28px system-ui", "#d9d4ed");
-  download(canvas.toDataURL("image/png"), "Case-Relay-Certificate.png");
-});
-
-updateMotion();
-openCase(0, 0, false);
+$("source").innerHTML='<option value="">All sources</option>'+[...new Set(records.map(r=>r.source))].map(s=>'<option>'+esc(s)+'</option>').join("");
+$("cabinet-btn").onclick=()=>{searchArchive();$("cabinet").showModal();$("query").focus();};
+$("query").oninput=searchArchive;$("source").onchange=searchArchive;$("close").onclick=()=>$("cabinet").close();
+$("report").onclick=()=>{if(state.report)download(state.report,"text/plain;charset=utf-8","North-Quay-hand-off.txt");};
+$("certificate").onclick=()=>{
+  if(state.passed!==8)return;
+  const name=$("name").value.trim();
+  if(!name){$("reward-status").textContent="Enter the name you want printed on your certificate.";$("name").focus();return;}
+  const canvas=document.createElement("canvas");canvas.width=1500;canvas.height=940;
+  const ctx=canvas.getContext("2d");ctx.fillStyle="#f5f2e8";ctx.fillRect(0,0,1500,940);
+  ctx.strokeStyle="#242c26";ctx.lineWidth=4;ctx.strokeRect(42,42,1416,856);
+  ctx.fillStyle="#242c26";ctx.textAlign="center";
+  function line(s,y,font){ctx.font=font;ctx.fillText(s,750,y,1250);}
+  line("NORTH QUAY PRESS   /   CASE RELAY",155,"bold 30px monospace");
+  line("Certificate of Completion",300,"bold 75px Georgia");
+  line(name,460,"italic 80px Georgia");
+  line("The Midnight Edition",575,"bold 52px Georgia");
+  line("Security logging, event correlation and SOC investigation",650,"32px system-ui");
+  line("Eight stations completed   •   "+new Date().toLocaleDateString(),790,"26px monospace");
+  const a=document.createElement("a");a.download="Midnight-Edition-Certificate.png";a.href=canvas.toDataURL("image/png");a.click();
+  $("reward-status").textContent="Certificate download started.";
+};
+setMotion();render();
